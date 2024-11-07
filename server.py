@@ -4,6 +4,7 @@ import json
 import time
 import threading
 import math
+import os
 
 from pathlib import Path
 
@@ -145,4 +146,4 @@ def server_background_tasks():
 server_background_tasks()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=os.getenv("SERVER_PORT"))
