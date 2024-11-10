@@ -15,7 +15,9 @@ app = Flask(__name__)
 room_init = open
 
 user_max_idle_time = 9999999999999
-base_client_tick_rate = 100
+
+base_client_tick_rate = 500
+
 current_client_tick_rate = base_client_tick_rate
 
 hits = 0
@@ -41,6 +43,8 @@ with open("./init/rooms.json", "r") as file:
 # rooms = {"room_id": 1, "room_name": "Room 1", "users": []}
 # rooms_lock = Lock()
 
+user_def_vals = ["x", "y", "costume"]
+
 
 def write_user_to_room(room_id, user):
     room_file = open(f"data/rooms/{room_id}.json", "r")
@@ -51,27 +55,37 @@ def write_user_to_room(room_id, user):
 
     user["timestamp"] = time.time()
 
-    room_data["users"][user_name] = user
+    if user_name in room_data["users"]:
+        for val in user_def_vals:
+            if val in user:
+                room_data["users"][user_name][val] = user[val]
+    else:
+        room_data["users"][user_name] = user
+
+    request_for_more_info = False
+    for val in user_def_vals:
+        if val not in room_data["users"][user_name]:
+            request_for_more_info = True
 
     room_file.close()
 
     room_file = open(f"data/rooms/{room_id}.json", "w")
     room_file.write(json.dumps(room_data, indent=4))
 
-    return room_data
+    return request_for_more_info
 
 
 # Endpoint to join/update position in a room
 @app.route("/rooms/<room_id>/users", methods=["POST"])
 def update_room(room_id):
-    room_json = write_user_to_room(room_id, request.json)
+    request_for_more_info = write_user_to_room(room_id, request.json)
 
     global hits
     hits = hits + 1
 
     package = {
         "tick_rate": current_client_tick_rate,
-        "data": room_json["users"],
+        "data": {"request_for_more_info": request_for_more_info},
     }
 
     return jsonify(package), 200
@@ -95,7 +109,7 @@ def get_room_users(room_id):
     global hits
     hits = hits + 1
 
-    package = {"tick_rate": current_client_tick_rate, "data": json.load(file)}
+    package = {"tick_rate": current_client_tick_rate, "data": json.load(file)["users"]}
     return jsonify(package), 200
 
 
