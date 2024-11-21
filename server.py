@@ -1,90 +1,34 @@
 from flask import Flask, request, jsonify
 from threading import Lock
-import json
-import time
 import threading
-import math
 import os
 
-from pathlib import Path
+from managers import HitManager, RoomManager, EventManager
 
-Path("data/rooms").mkdir(parents=True, exist_ok=True)
+
+rooms = RoomManager()
+events = EventManager()
+hits = HitManager()
 
 app = Flask(__name__)
 
-room_init = open
-
-user_max_idle_time = 9999999999999
-
-base_client_tick_rate = 500
-
-current_client_tick_rate = base_client_tick_rate
-
-hits = 0
-hits_attrition_rate = 5
-hits_interval = 1
-last_hits_update_time = 0
 
 server_background_update_interval = 1
-
-with open("./init/rooms.json", "r") as file:
-    defs = json.load(file)["defs"]
-    for room in defs:
-        room_file = open(f"data/rooms/{room['room_id']}.json", "w")
-        base_room_data = {
-            "room_id": room["room_id"],
-            "room_name": room["room_name"],
-            "maps": room["maps"],
-            "users": {},
-        }
-        room_file.write(json.dumps(base_room_data, indent=4))
 
 # Room data structure with a thread lock for concurrency safety
 # rooms = {"room_id": 1, "room_name": "Room 1", "users": []}
 # rooms_lock = Lock()
 
-user_def_vals = ["x", "y", "costume"]
-
-
-def write_user_to_room(room_id, user):
-    room_file = open(f"data/rooms/{room_id}.json", "r")
-    room_data = json.load(room_file)
-
-    user_name = user["name"]
-    del user["name"]
-
-    user["timestamp"] = time.time()
-
-    if user_name in room_data["users"]:
-        for val in user_def_vals:
-            if val in user:
-                room_data["users"][user_name][val] = user[val]
-    else:
-        room_data["users"][user_name] = user
-
-    request_for_more_info = False
-    for val in user_def_vals:
-        if val not in room_data["users"][user_name]:
-            request_for_more_info = True
-
-    room_file.close()
-
-    room_file = open(f"data/rooms/{room_id}.json", "w")
-    room_file.write(json.dumps(room_data, indent=4))
-
-    return request_for_more_info
-
 
 # Endpoint to join/update position in a room
 @app.route("/rooms/<room_id>/users", methods=["POST"])
-def update_room(room_id):
-    request_for_more_info = write_user_to_room(room_id, request.json)
+def update_room(room_id) -> dict:
+    request_for_more_info = rooms.write_user_to_room(room_id, request.json)
 
-    global hits
-    hits = hits + 1
+    hits.hit()
 
     package = {
-        "tick_rate": current_client_tick_rate,
+        "tick_rate": hits.get_tick_rate(),
         "data": {"request_for_more_info": request_for_more_info},
     }
 
@@ -92,69 +36,29 @@ def update_room(room_id):
 
 
 @app.route("/rooms/<room_id>", methods=["GET"])
-def get_room(room_id):
-    file = open(f"data/rooms/{room_id}.json", "r")
+def get_room(room_id) -> dict:
+    room = rooms.get_room(room_id)
 
-    global hits
-    hits = hits + 1
+    hits.hit()
 
-    package = {"tick_rate": current_client_tick_rate, "data": json.load(file)}
+    package = {"tick_rate": hits.get_tick_rate(), "data": room}
     return jsonify(package), 200
 
 
 @app.route("/rooms/<room_id>/users", methods=["GET"])
-def get_room_users(room_id):
-    file = open(f"data/rooms/{room_id}.json", "r")
+def get_room_users(room_id) -> dict:
+    users = rooms.get_room_users(room_id)
 
-    global hits
-    hits = hits + 1
+    hits.hit()
 
-    package = {"tick_rate": current_client_tick_rate, "data": json.load(file)["users"]}
+    package = {"tick_rate": hits.get_tick_rate(), "data": users}
     return jsonify(package), 200
 
 
-def cleanup_old_users():
-    for room_id in ["1", "2", "3"]:
-        room_file = open(f"data/rooms/{room_id}.json", "r")
-        room_data = json.load(room_file)
-
-        current_timestamp = time.time()
-
-        shitlist = []
-
-        for user_name in room_data["users"]:
-            diff = current_timestamp - room_data["users"][user_name]["timestamp"]
-            if diff >= user_max_idle_time:
-                shitlist.append(user_name)
-
-        if len(shitlist) > 0:
-            print(shitlist)
-
-        for user_name in shitlist:
-            del room_data["users"][user_name]
-
-        room_file.close()
-
-        room_file = open(f"data/rooms/{room_id}.json", "w")
-        room_file.write(json.dumps(room_data, indent=4))
-
-
 def server_background_tasks():
+    hits.update_tick_rate()
     threading.Timer(server_background_update_interval, server_background_tasks).start()
-    cleanup_old_users()
-
-    global last_hits_update_time
-    global hits
-
-    current_time = time.time()
-
-    if current_time - last_hits_update_time >= hits_interval:
-        attrition = math.floor(hits / hits_attrition_rate)
-        if attrition < 1:
-            attrition = 1
-        current_client_tick_rate = base_client_tick_rate * attrition
-        hits = 0
-        last_hits_update_time = time.time()
+    rooms.cleanup_old_users()
 
 
 server_background_tasks()
