@@ -58,6 +58,9 @@ class EventManager:
         self.write_event(event)
 
     def get_events_since(self, username: str, current_timestamp: int) -> dict:
+        data = self.get_current_events()
+        events = data["events"]
+
         prev_timestamp = 0
         events_since = []
 
@@ -67,12 +70,16 @@ class EventManager:
 
         compare_timestamp = prev_timestamp if prev_timestamp > 0 else current_timestamp
 
-        print(prev_timestamp, current_timestamp, prev_timestamp == compare_timestamp)
-
-        for event in self.get_current_events()["events"]:
-            if username != entry["username"]:
+        for event in events:
+            if username != event["username"]:
+                print(
+                    compare_timestamp,
+                    event["timestamp"],
+                    event["timestamp"] > compare_timestamp,
+                )
                 if event["timestamp"] > compare_timestamp:
                     events_since.append(event)
+                    print(events_since)
 
         self.log_request(username, current_timestamp)
 
@@ -82,8 +89,6 @@ class EventManager:
 
         data = self.get_current_events()
         events = data["events"]
-
-        print(events)
 
         exists_already = False
         for n in range(0, len(events)):
