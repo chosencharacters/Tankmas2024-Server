@@ -4,6 +4,8 @@ from pathlib import Path
 
 user_max_idle_time = 99999
 
+from tools import load_json, write_json
+
 
 class RoomManager:
     def __init__(self):
@@ -47,13 +49,11 @@ class RoomManager:
 
         return request_for_more_info
 
-    def set_room(self, room_id, room_data) -> dict:
-        with open(f"data/rooms/{room_id}.json", "w") as room_file:
-            room_file.write(json.dumps(room_data, indent=4))
+    def set_room(self, room_id, room_data):
+        write_json(f"data/rooms/{room_id}.json", room_data)
 
     def get_room(self, room_id) -> dict:
-        file = open(f"data/rooms/{room_id}.json", "r")
-        return json.load(file)
+        return load_json(f"data/rooms/{room_id}.json")
 
     def get_room_users(self, room_id) -> dict:
         room = self.get_room(room_id)
@@ -61,8 +61,7 @@ class RoomManager:
 
     def cleanup_old_users(self):
         for room_id in ["1", "2", "3"]:
-            room_file = open(f"data/rooms/{room_id}.json", "r")
-            room_data = json.load(room_file)
+            room_data = self.get_room(room_id)
 
             current_timestamp = time.time()
 
@@ -79,7 +78,4 @@ class RoomManager:
             for user_name in shitlist:
                 del room_data["users"][user_name]
 
-            room_file.close()
-
-            room_file = open(f"data/rooms/{room_id}.json", "w")
-            room_file.write(json.dumps(room_data, indent=4))
+            write_json(f"data/rooms/{room_id}.json", room_data)
