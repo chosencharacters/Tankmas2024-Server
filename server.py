@@ -16,7 +16,7 @@ app = Flask(__name__)
 events.event("tankman", "murder", {"yea": 0})
 server_background_update_interval = 1
 
-events.get_events_since("tankman", time.time())
+print(events.get_events_since("tankman", time.time()))
 
 # Room data structure with a thread lock for concurrency safety
 # rooms = {"room_id": 1, "room_name": "Room 1", "users": []}
