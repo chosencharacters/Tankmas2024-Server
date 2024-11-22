@@ -1,4 +1,3 @@
-import json
 import time
 from pathlib import Path
 import os
@@ -9,27 +8,24 @@ current_events_path = "data/events/events.json"
 archived_events_path = "data/events/events-archive.json"
 requests_log_path = "data/events/requests-log.json"
 
-events = ["sticker"]
-
 max_before_archive = 5
 
 timestamp_diff_limit = 9999
-
-Path("data/events").mkdir(parents=True, exist_ok=True)
-
-for file_path in [current_events_path, archived_events_path]:
-    if not os.path.isfile(file_path):
-        with open(current_events_path, "w") as file:
-            write_json(file_path, {"events": []})
-
-if not os.path.isfile(requests_log_path):
-    write_json(requests_log_path, {"entries": []})
 
 
 class EventManager:
     def __init__(self):
         self.access_log = {}
-        pass
+
+        Path("data/events").mkdir(parents=True, exist_ok=True)
+
+        for file_path in [current_events_path, archived_events_path]:
+            if not os.path.isfile(file_path):
+                with open(current_events_path, "w") as file:
+                    write_json(file_path, {"events": []})
+
+        if not os.path.isfile(requests_log_path):
+            write_json(requests_log_path, {"entries": []})
         # with open(current_events_path, "r") as file:
         # self.events_log = json.loads()
 
@@ -45,17 +41,17 @@ class EventManager:
     def get_request_log(self) -> dict:
         return load_json(requests_log_path)
 
-    def event(self, username: str, event_type: str, data):
+    def post_event(self, username: str, event_type: str, data):
         timestamp = time.time()
 
         event = {
             "timestamp": timestamp,
-            "event": event_type,
+            "type": event_type,
             "data": data,
             "username": username,
         }
 
-        self.write_event(event)
+        self.write_event_to_file(event)
 
     def get_events_since(self, username: str, current_timestamp: int) -> dict:
         data = self.get_current_events()
@@ -67,6 +63,9 @@ class EventManager:
         for entry in self.get_request_log()["entries"]:
             if entry["username"] == username:
                 prev_timestamp = entry["timestamp"]
+
+        # for testing
+        # prev_timestamp = 5
 
         compare_timestamp = prev_timestamp if prev_timestamp > 0 else current_timestamp
 
@@ -85,15 +84,14 @@ class EventManager:
 
         return events_since
 
-    def write_event(self, event) -> list:
-
+    def write_event_to_file(self, event) -> list:
         data = self.get_current_events()
         events = data["events"]
 
         exists_already = False
         for n in range(0, len(events)):
             if events[n]["username"] == event["username"]:
-                if events[n]["event"] == event["event"]:
+                if events[n]["type"] == event["type"]:
                     events[n] = event
                     exists_already = True
                     break
