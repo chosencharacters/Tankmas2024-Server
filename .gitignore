@@ -5,3 +5,4 @@ data
 managers/__pycache__/room_manager.cpython-312.pyc
 managers/__pycache__/event_manager.cpython-312.pyc
 *.pyc
+/managers
