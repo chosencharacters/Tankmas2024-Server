@@ -21,8 +21,7 @@ class EventManager:
 
         for file_path in [current_events_path, archived_events_path]:
             if not os.path.isfile(file_path):
-                with open(current_events_path, "w") as file:
-                    write_json(file_path, {"events": []})
+                write_json(file_path, {"events": []})
 
         if not os.path.isfile(requests_log_path):
             write_json(requests_log_path, {"entries": []})
