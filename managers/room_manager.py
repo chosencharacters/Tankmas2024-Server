@@ -11,7 +11,7 @@ class RoomManager:
     def __init__(self):
         Path("data/rooms").mkdir(parents=True, exist_ok=True)
 
-        self.user_def_vals = ["x", "y", "costume", "sx", "timestamp"]
+        self.user_def_vals = ["x", "y", "costume", "sx"]
 
         with open("./init/rooms.json", "r") as file:
             defs = json.load(file)["defs"]
