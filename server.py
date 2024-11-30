@@ -4,7 +4,7 @@ import threading
 import os
 import time
 
-from managers import HitManager, RoomManager, EventManager
+from managers import HitManager, RoomManager, EventManager,PremiereManager
 
 # from queue import Queue
 # from threading import Thread
@@ -16,6 +16,8 @@ from managers import HitManager, RoomManager, EventManager
 rooms = RoomManager()
 events = EventManager()
 hits = HitManager()
+
+premieres = PremiereManager()
 
 app = Flask(__name__)
 
@@ -102,6 +104,11 @@ def server_background_tasks():
     threading.Timer(server_background_update_interval, server_background_tasks).start()
     rooms.cleanup_old_users()
 
+
+@app.route("/premieres", methods=["GET"])
+def get_premieres() -> dict:
+    res = premieres.get_all()
+    return jsonify(res), 200
 
 server_background_tasks()
 
