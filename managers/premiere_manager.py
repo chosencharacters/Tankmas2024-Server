@@ -35,7 +35,6 @@ class PremiereManager:
 			p = self.premieres[name]
 			time = p["time"]
 			release_date = datetime.strptime(time, '%Y-%m-%d %I:%M%p')
-			print(release_date)
 
 			delta = (release_date - now).total_seconds()
 

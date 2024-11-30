@@ -112,5 +112,16 @@ def get_premieres() -> dict:
 
 server_background_tasks()
 
+@app.route("/", methods=["GET"])
+def index():
+    return "Hello", 200
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=os.getenv("SERVER_PORT"))
+    use_https = os.getenv("USE_HTTPS") is not None
+    
+    ssl_context = None
+    if use_https:
+        ssl_context = ("cert/privkey.key", "cert/cert.crt")
+
+    app.run(host="0.0.0.0", port=os.getenv("SERVER_PORT"), ssl_context=ssl_context)
+
