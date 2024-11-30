@@ -4,7 +4,7 @@ import threading
 import os
 import time
 
-from managers import HitManager, RoomManager, EventManager
+from managers import HitManager, RoomManager, EventManager,PremiereManager
 
 # from queue import Queue
 # from threading import Thread
@@ -16,6 +16,8 @@ from managers import HitManager, RoomManager, EventManager
 rooms = RoomManager()
 events = EventManager()
 hits = HitManager()
+
+premieres = PremiereManager()
 
 app = Flask(__name__)
 
@@ -103,7 +105,23 @@ def server_background_tasks():
     rooms.cleanup_old_users()
 
 
+@app.route("/premieres", methods=["GET"])
+def get_premieres() -> dict:
+    res = premieres.get_all()
+    return jsonify(res), 200
+
 server_background_tasks()
 
+@app.route("/", methods=["GET"])
+def index():
+    return "Hello", 200
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=os.getenv("SERVER_PORT"))
+    use_https = os.getenv("USE_HTTPS") is not None
+    
+    ssl_context = None
+    if use_https:
+        ssl_context = ("cert/privkey.key", "cert/cert.crt")
+
+    app.run(host="0.0.0.0", port=os.getenv("SERVER_PORT"), ssl_context=ssl_context)
+
