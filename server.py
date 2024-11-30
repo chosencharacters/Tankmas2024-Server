@@ -21,6 +21,10 @@ premieres = PremiereManager()
 
 app = Flask(__name__)
 
+from flask_cors import CORS
+cors = CORS(app) # allow CORS for all domains on all routes.
+app.config['CORS_HEADERS'] = 'Content-Type'
+
 server_background_update_interval = 1
 
 # events.post_event("tankman", "murder", {"yea": 0})
