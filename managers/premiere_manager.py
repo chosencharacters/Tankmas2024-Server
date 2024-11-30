@@ -1,5 +1,6 @@
-
-from tools import load_json
+from pathlib import Path
+import os
+from tools import load_json, write_json
 
 from datetime import datetime
 
@@ -23,6 +24,18 @@ example json file:
 
 class PremiereManager:
 	def __init__(self) -> None:
+		Path("data").mkdir(parents=True, exist_ok=True)
+		if not os.path.isfile(premiere_file):
+			write_json(premiere_file, {"premieres": {
+				"test movie": {
+					"time": "2024-11-30 11:12AM",
+					"url": "https://uploads.ungrounded.net/alternate/6243000/6243882_alternate_289698.720p.mp4?1732833997"
+				},
+				"anoter_movie": {
+					"time": "2024-12-15 11:30AM",
+					"url": "https://uploads.ungrounded.net/alternate/6243000/6243882_alternate_289698.720p.mp4?1732833997"
+				}
+			}})
 		premiere_data = load_json(premiere_file)
 		if premiere_data["premieres"] is None:
 			raise Exception("No premieres found")
