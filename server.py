@@ -18,6 +18,8 @@ from db.tankmasdb import TankmasDb;
 
 config = load_json("config.json")
 
+print("Helo")
+
 db = TankmasDb(config)
 
 rooms = RoomManager()
