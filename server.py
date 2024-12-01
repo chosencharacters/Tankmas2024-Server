@@ -200,6 +200,6 @@ def close_connection(exception):
     
 def init_db():
     with app.app_context():
-        db.init(config)
+        db.init(config, app)
 
 init_db()

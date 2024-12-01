@@ -28,14 +28,14 @@ class TankmasDb:
         self.last_backup = time.time()
         self.max_idle_time = config["user_max_idle_time"]
 
-    def init(self, config):
-        self.init_db()
+    def init(self, config, app):
+        self.init_db(app)
         self.user_def_vals = config["user_def_vals"]
         
         self.user_event_timestamps = {}
 
         for r in config["rooms"]: 
-            self.upsert_room(r["id"], r["name"])
+            self.upsert_room(r["id"], r["name"], r["identifier"])
             self.room_infos[r["id"]] = {
                "name": r["name"],
                "id": r["id"],
@@ -43,9 +43,9 @@ class TankmasDb:
                "maps": r["maps"],
             }
 
-    def init_db(self):
+    def init_db(self, app):
         db = get_db()
-        with open(INIT_FILE, mode='r') as f:
+        with app.open_resource(INIT_FILE, mode='r') as f:
             db.cursor().executescript(f.read())
         pass
             
