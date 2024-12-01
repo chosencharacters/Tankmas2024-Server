@@ -3,7 +3,7 @@ import time
 import math
 from pathlib import Path
 
-user_def_vals = ["x", "y", "costume"]
+user_def_vals = ["x", "y", "costume", "sx"]
 base_client_tick_rate = 500
 
 

@@ -1,0 +1,13 @@
+{
+  "backup_interval": 1800,
+  "user_max_idle_time": 600,
+  "user_def_vals": ["x", "y", "costume", "sx"],
+  "rooms": [
+    {
+      "id": 1,
+      "identifier": "hotel_courtyard",
+      "name": "Outside Hotel",
+      "maps": ["intro"]
+    }
+  ]
+}
