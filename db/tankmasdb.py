@@ -29,6 +29,7 @@ class TankmasDb:
         self.max_idle_time = config["user_max_idle_time"]
 
     def init(self, config, app):
+        print("Initializing DB...")
         self.init_db(app)
         self.user_def_vals = config["user_def_vals"]
         
@@ -46,8 +47,10 @@ class TankmasDb:
     def init_db(self, app):
         db = get_db()
         with app.open_resource(INIT_FILE, mode='r') as f:
-            db.cursor().executescript(f.read())
-        pass
+            init_script = f.read()
+            print(init_script)
+            db.cursor().executescript(init_script)
+        print("Inited DB")
             
     def upsert_room(self, room_id, room_identifier, room_name):
         db = get_db()
