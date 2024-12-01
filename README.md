@@ -10,6 +10,7 @@ make sure you added python to your PATHS if it hasn't already
 
 then
 `pip install flask`
+`pip install flask_cors`
 
 then to run local
 `python3 server.py`
