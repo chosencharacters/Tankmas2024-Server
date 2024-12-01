@@ -18,8 +18,6 @@ from db.tankmasdb import TankmasDb;
 
 config = load_json("config.json")
 
-print("Helo")
-
 db = TankmasDb(config)
 
 rooms = RoomManager()
@@ -30,6 +28,9 @@ hits = HitManager()
 premieres = PremiereManager()
 
 app = Flask(__name__)
+
+with app.app_context():
+    db.init(config, app)
 
 from flask_cors import CORS
 cors = CORS(app) # allow CORS for all domains on all routes.
@@ -200,8 +201,3 @@ if __name__ == "__main__":
 def close_connection(exception):
     db.close()
     
-def init_db():
-    with app.app_context():
-        db.init(config, app)
-
-init_db()

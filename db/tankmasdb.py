@@ -24,6 +24,8 @@ class TankmasDb:
 
     def __init__(self, config):
         self.room_infos = {}
+        self.user_def_vals = config["user_def_vals"]
+        self.user_event_timestamps = {}
         self.backup_interval = config["backup_interval"] if "backup_interval" in config else 1800
         self.last_backup = time.time()
         self.max_idle_time = config["user_max_idle_time"]
@@ -31,9 +33,6 @@ class TankmasDb:
     def init(self, config, app):
         print("Initializing DB...")
         self.init_db(app)
-        self.user_def_vals = config["user_def_vals"]
-        
-        self.user_event_timestamps = {}
 
         for r in config["rooms"]: 
             self.upsert_room(r["id"], r["name"], r["identifier"])
