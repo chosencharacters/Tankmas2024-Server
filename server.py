@@ -4,7 +4,7 @@ import threading
 import os
 import time
 
-from managers import HitManager, RoomManager, EventManager,PremiereManager
+from managers import HitManager, RoomManager, EventManager, PremiereManager, SaveManager
 
 # from queue import Queue
 # from threading import Thread
@@ -15,6 +15,7 @@ from managers import HitManager, RoomManager, EventManager,PremiereManager
 
 rooms = RoomManager()
 events = EventManager()
+saves = SaveManager()
 hits = HitManager()
 
 premieres = PremiereManager()
@@ -108,6 +109,36 @@ def server_background_tasks():
     threading.Timer(server_background_update_interval, server_background_tasks).start()
     rooms.cleanup_old_users()
 
+@app.route("/saves/get", methods=["POST"])
+def fetch_save() -> dict:
+    hits.hit()
+
+    event = request.json
+
+    print(event)
+
+    data = saves.get_save(event["username"])
+
+    if data is None:
+        data = "null"
+
+    package = {"tick_rate": hits.get_tick_rate(), data: data}
+
+    return jsonify(package), 200
+
+@app.route("/saves/post", methods=["POST"])
+def post_save() -> dict:
+    hits.hit()
+
+    event = request.json
+
+    print(event)
+
+    saves.set_save(event["username"], event["data"])
+
+    package = {"tick_rate": hits.get_tick_rate()}
+
+    return jsonify(package), 200
 
 @app.route("/premieres", methods=["GET"])
 def get_premieres() -> dict:
