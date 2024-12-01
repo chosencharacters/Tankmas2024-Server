@@ -5,3 +5,4 @@ data
 managers/__pycache__
 *.pyc
 cert
+backups

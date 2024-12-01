@@ -1,10 +1,14 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, g
 from threading import Lock
 import threading
 import os
 import time
 
-from managers import HitManager, RoomManager, EventManager, PremiereManager, SaveManager
+from tools import load_json
+
+from managers import HitManager, RoomManager, EventManager,PremiereManager, SaveManager
+
+from db.tankmasdb import TankmasDb;
 
 # from queue import Queue
 # from threading import Thread
@@ -12,6 +16,9 @@ from managers import HitManager, RoomManager, EventManager, PremiereManager, Sav
 # number_of_room_threads = 5  ### obviously this is configurable
 # room_queue = Queue()
 
+config = load_json("config.json")
+
+db = TankmasDb(config)
 
 rooms = RoomManager()
 events = EventManager()
@@ -35,34 +42,48 @@ server_background_update_interval = 1
 # rooms = {"room_id": 1, "room_name": "Room 1", "users": []}
 # rooms_lock = Lock()
 
-rooms_being_accessed = []
-
 
 # Endpoint to join/update position in a room
 @app.route("/rooms/<room_id>/users", methods=["POST"])
 def update_room(room_id) -> dict:
-    # while room_id in rooms_being_accessed:
-    #      x = 2
-
-    rooms_being_accessed.append(room_id)
-
-    request_for_more_info = rooms.write_user_to_room(room_id, request.json)
-
+    
+    body = request.json
+    
+    username = body["name"] if "name" in body else None
+    x = body["x"] if "x" in body else None
+    y = body["y"] if "y" in body else None
+    sx = body["sx"] if "sx" in body else None
+    costume = body["costume"] if "costume" in body else None
+    
     hits.hit()
+    
+    if username is None:
+        return jsonify({
+            "tick_rate": hits.get_tick_rate(),
+            "data": {}
+        })
 
+    request_for_more_info = db.upsert_user(username, room_id, x, y, sx, costume)
+    
     package = {
         "tick_rate": hits.get_tick_rate(),
         "data": {"request_for_more_info": request_for_more_info},
     }
 
-    rooms_being_accessed.remove(room_id)
-
     return jsonify(package), 200
 
+@app.route("/users/<username>", methods=["GET"])
+def get_user(username) -> dict:
+    user = db.get_user(username)
+
+    hits.hit()
+
+    package = {"tick_rate": hits.get_tick_rate(), "data": user}
+    return jsonify(package), 200
 
 @app.route("/rooms/<room_id>", methods=["GET"])
 def get_room(room_id) -> dict:
-    room = rooms.get_room(room_id)
+    room = db.get_room(room_id)
 
     hits.hit()
 
@@ -72,7 +93,9 @@ def get_room(room_id) -> dict:
 
 @app.route("/rooms/<room_id>/users", methods=["GET"])
 def get_room_users(room_id) -> dict:
-    users = rooms.get_room_users(room_id)
+    room = db.get_room(room_id)
+    
+    users = room["users"] if room is not None and room["users"] is not None else {}
 
     hits.hit()
 
@@ -86,11 +109,17 @@ def post_room_event(room_id) -> dict:
 
     event = request.json
 
-    print(event)
-
-    events.post_event(event["username"], event["type"], event["data"])
+    username = event["username"] if "username" in event else None
+    type = event["type"] if "type" in event else None
+    data = event["data"] if "data" in event else None
 
     package = {"tick_rate": hits.get_tick_rate()}
+    
+    if username is None or type is None:
+        return jsonify(package), 200
+
+    db.post_event(username, type, data, room_id)
+
     return jsonify(package), 200
 
 
@@ -98,7 +127,10 @@ def post_room_event(room_id) -> dict:
 def get_room_events(room_id) -> dict:
     hits.hit()
 
-    events_array = events.get_events_since(request.json["username"], time.time())
+    username = request.json["username"] if "username" in request.json else None
+    events_array = []
+    if username is not None: 
+        events_array = db.get_new_events(username, room_id)
 
     package = {"tick_rate": hits.get_tick_rate(), "data": {"events": events_array}}
     return jsonify(package), 200
@@ -107,6 +139,9 @@ def get_room_events(room_id) -> dict:
 def server_background_tasks():
     hits.update_tick_rate()
     threading.Timer(server_background_update_interval, server_background_tasks).start()
+
+    db.process()
+
     rooms.cleanup_old_users()
 
 @app.route("/saves/get", methods=["POST"])
@@ -114,15 +149,14 @@ def fetch_save() -> dict:
     hits.hit()
 
     event = request.json
-
-    print(event)
-
-    data = saves.get_save(event["username"])
+    
+    username = event["username"]
+    data = db.load_user_file(username)
 
     if data is None:
         data = "null"
 
-    package = {"tick_rate": hits.get_tick_rate(), data: data}
+    package = {"tick_rate": hits.get_tick_rate(), "data": data}
 
     return jsonify(package), 200
 
@@ -132,9 +166,8 @@ def post_save() -> dict:
 
     event = request.json
 
-    print(event)
-
-    saves.set_save(event["username"], event["data"])
+    #saves.set_save(event["username"], event["data"])
+    db.save_user_file(event["username"], event["data"])
 
     package = {"tick_rate": hits.get_tick_rate()}
 
@@ -160,3 +193,13 @@ if __name__ == "__main__":
 
     app.run(host="0.0.0.0", port=os.getenv("SERVER_PORT"), ssl_context=ssl_context)
 
+
+@app.teardown_appcontext
+def close_connection(exception):
+    db.close()
+    
+def init_db():
+    with app.app_context():
+        db.init(config)
+
+init_db()
