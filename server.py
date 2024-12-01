@@ -75,6 +75,21 @@ def update_room(room_id) -> dict:
 
     return jsonify(package), 200
 
+@app.route("/log/dump", methods=["GET"])
+def log_dump() -> dict:
+    data = db.dump_info()
+    return jsonify(data), 200
+
+@app.route("/log/dump/users", methods=["GET"])
+def log_users() -> dict:
+    data = db.get_users()
+    return jsonify(data), 200
+
+@app.route("/log/dump/events", methods=["GET"])
+def log_events() -> dict:
+    data = db.get_events()
+    return jsonify(data), 200
+
 @app.route("/users/<username>", methods=["GET"])
 def get_user(username) -> dict:
     user = db.get_user(username)

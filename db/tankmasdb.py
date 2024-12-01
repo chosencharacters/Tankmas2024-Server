@@ -47,7 +47,6 @@ class TankmasDb:
         db = get_db()
         with app.open_resource(INIT_FILE, mode='r') as f:
             init_script = f.read()
-            print(init_script)
             db.cursor().executescript(init_script)
         print("Inited DB")
             
@@ -60,18 +59,22 @@ class TankmasDb:
         """, [room_id, room_identifier, room_name, room_name, room_identifier])
         db.commit()
     
-    def get_room(self, room_id):
+    def get_users(self, room_id = None):
         db = get_db()
         cur = db.cursor()
+        
+        filter = """
+            WHERE u.room_id = ?
+            AND u.last_timestamp > ?
+        """ if room_id is not None else ""
+        
+        values = [room_id, time.time() - self.max_idle_time] if filter != "" else ""
 
         cur.execute("""
             SELECT 
                 u.username, u.x, u.y, u.costume, u.sx, u.data, 
                 last_timestamp
-            FROM users u
-            WHERE u.room_id = ?
-            AND u.last_timestamp > ?
-        """, (room_id, time.time() - self.max_idle_time))
+            FROM users u """+ filter, values)
         
         users = {} 
         for row in cur:
@@ -87,6 +90,11 @@ class TankmasDb:
                 "data": user_data,
                 "timestamp": row[6]
             }
+            
+        return users
+
+    def get_room(self, room_id):
+        users = self.get_users(room_id)
         
         room_info = self.room_infos[int(room_id)]
         return {
@@ -94,6 +102,15 @@ class TankmasDb:
             "room_name": room_info["name"],
             "maps": room_info["maps"],
             "users": users
+        }
+        
+    def dump_info(self):
+        users = self.get_users()
+        events = self.get_events()
+        
+        return {
+            "users": users,
+            "events": events
         }
     
     def upsert_user(self, username, room_id, x = None, y = None, sx = None, costume = None, data = None):
@@ -164,6 +181,26 @@ class TankmasDb:
         """, (username, event_type, json.dumps(data), room_id))
         db.commit()
     
+    def get_events(self):
+        db = get_db()
+        cur = db.cursor()
+        cur.execute("""
+            SELECT username, type, room_id, timestamp, data
+            FROM events 
+        """)
+        
+        events = []
+        for e in cur:
+            events.append({
+                "username": e[0],
+                "type": e[1],
+                "room_id": e[2],
+                "timestamp": e[3],
+                "data": json.loads(e[4]) if e[4] is not None else None,
+            })
+        
+        return events
+    
     def get_new_events(self, username, room_id):
         last_timestamp = self.user_event_timestamps[username] if username in self.user_event_timestamps else time.time()
         self.user_event_timestamps[username] = time.time()
@@ -172,7 +209,8 @@ class TankmasDb:
         cur = db.cursor()
         cur.execute("""
             SELECT username, type, room_id, timestamp, data
-            FROM events WHERE
+            FROM events 
+            WHERE
                 timestamp >= ?
             AND
                 room_id = ?
