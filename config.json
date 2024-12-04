@@ -1,0 +1,36 @@
+{
+  "tick_rate": 2,
+  "server_port": 5000,
+
+  "dev_mode": false,
+
+  "database_file": "data/tankmas.db",
+
+  "backup_interval": 3600,
+  "backup_dir": "backups",
+
+  "user_max_idle_time": 600,
+  "user_def_vals": ["x", "y", "costume", "sx"],
+
+  "initial_player_data": {
+    "room_id": 1,
+    "x": 1500,
+    "y": 150,
+    "costume": "tankman",
+    "data": {}
+  },
+  "rooms": [
+    {
+      "id": 1,
+      "identifier": "hotel_courtyard",
+      "name": "Outside Hotel",
+      "maps": ["intro"]
+    },
+    {
+      "id": 2,
+      "identifier": "test_room",
+      "name": "Test Room",
+      "maps": ["test_map"]
+    }
+  ]
+}
