@@ -10,6 +10,9 @@ export const EventType = {
 
   // Called when player disconnects or leaves the room.
   PlayerLeft: 4 as const,
+
+  // Notification message, useful to send messages to players.
+  NotificationMessage: 12 as const,
 };
 
 const player_def = z.object({
@@ -53,10 +56,20 @@ const player_left = z.object({
   }),
 });
 
+const notification_message_event = z.object({
+  type: z.literal(EventType.NotificationMessage),
+  timestamp: z.number().optional(),
+  data: z.object({
+    text: z.string(),
+    persistent: z.boolean().optional(),
+  }),
+});
+
 export const event_schema = z.discriminatedUnion('type', [
   position_update_event,
   custom_event,
   player_left,
+  notification_message_event,
 ]);
 
 export type CustomEvent = z.infer<typeof custom_event>;
