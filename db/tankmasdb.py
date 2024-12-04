@@ -77,6 +77,7 @@ class TankmasDb:
             FROM users u """+ filter, values)
         
         users = {} 
+        now = time.time()
         for row in cur:
             user_data = {}
             if row[5] is not None:
@@ -88,7 +89,8 @@ class TankmasDb:
                 "costume": row[3],
                 "sx": row[4],
                 "data": user_data,
-                "timestamp": row[6]
+                "timestamp": row[6],
+                "online": row[6] + self.max_idle_time > now,
             }
             
         return users
@@ -119,11 +121,19 @@ class TankmasDb:
 
         cur.execute("""
         INSERT INTO users(username, room_id) VALUES(?, ?)
-            ON CONFLICT(username) DO UPDATE SET room_id=?;
-        """, (username, room_id, room_id))
+            ON CONFLICT(username) DO NOTHING;
+        """, [username, room_id])
 
         field_names = []
         field_values = []
+
+
+        field_names.append('last_timestamp=?')
+        field_values.append(time.time())
+
+        field_names.append('room_id=?')
+        field_values.append(room_id)
+        
         if x is not None:
             field_names.append('x=?')
             field_values.append(x)
@@ -142,13 +152,12 @@ class TankmasDb:
 
         field_values.append(username)
         set_statement = ", ".join(field_names)
-        if set_statement != "":
-            set_statement = set_statement + ", "
+      
         query = "UPDATE users SET "+set_statement+"""
-            last_timestamp=unixepoch('now','subsec')
             WHERE username = ?
             RETURNING x, y, costume, sx
             """
+
         cur.execute(query, field_values)
 
         request_for_more_info = False
@@ -175,10 +184,10 @@ class TankmasDb:
     def post_event(self, username, event_type, data, room_id = None):
         db = get_db()
         cur = db.cursor()
-
+        timestamp = time.time()
         cur.execute("""
-        INSERT INTO events(timestamp, username, type, data, room_id) VALUES(unixepoch('now','subsec'), ?, ?, ?, ?)
-        """, (username, event_type, json.dumps(data), room_id))
+        INSERT INTO events(timestamp, username, type, data, room_id) VALUES(?, ?, ?, ?, ?)
+        """, (timestamp, username, event_type, json.dumps(data), room_id))
         db.commit()
     
     def get_events(self):
