@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS rooms (
 	identifier TEXT NOT NULL UNIQUE
 );
 
+
 CREATE TABLE IF NOT EXISTS users (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	room_id INTEGER,
@@ -18,14 +19,17 @@ CREATE TABLE IF NOT EXISTS users (
 	data JSONB not null default '{}'
 );
 
+
 CREATE TABLE IF NOT EXISTS events (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	room_id INTEGER,
 	timestamp INTEGER DEFAULT CURRENT_TIMESTAMP,
-	username TEXT,
+	user_id INT,
 	type TEXT,
 	data jsonb not null default '{}'
 );
+
+-- insert into events select eo.id, CAST((eo.timestamp * 1000) AS INTEGER) timestamp, (select id from users where username=eo.username) user_id, eo.type, eo.room_id, eo.data from events_old eo;
 
 CREATE TABLE IF NOT EXISTS saves (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,4 +37,3 @@ CREATE TABLE IF NOT EXISTS saves (
 	data text default '',
 	save_time DATETIME DEFAULT CURRENT_TIMESTAMP
 )
-

@@ -1,4 +1,6 @@
 data
+backups
+ca
 .env
 *.pyc
 /managers/__pycache__
@@ -6,3 +8,4 @@ managers/__pycache__
 *.pyc
 cert
 backups
+.DS_Store

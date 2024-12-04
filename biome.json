@@ -1,0 +1,129 @@
+{
+  "$schema": "https://biomejs.dev/schemas/1.8.3/schema.json",
+
+  "files": {
+    "ignore": []
+  },
+
+  "linter": {
+    "rules": {
+      "recommended": true,
+
+      "a11y": {
+        "useButtonType": "off",
+        "useValidAnchor": "off",
+        "useMediaCaption": "off",
+        "noAutofocus": "off",
+        "noSvgWithoutTitle": "off",
+        "noRedundantAlt": "off",
+        "useIframeTitle": "off",
+        "noNoninteractiveElementToInteractiveRole": "off",
+        "useAriaPropsForRole": "off",
+
+        "useKeyWithClickEvents": { "level": "warn" },
+        "useAltText": { "level": "warn" },
+        "useKeyWithMouseEvents": { "level": "warn" }
+      },
+
+      "suspicious": {
+        "noConsoleLog": { "level": "error" },
+        "useAwait": { "level": "warn" },
+        "noControlCharactersInRegex": "off",
+
+        "noExplicitAny": { "level": "warn" },
+        "noDoubleEquals": { "level": "warn" },
+        "noConfusingVoidType": { "level": "warn" },
+        "noAssignInExpressions": { "level": "warn" },
+        "noImplicitAnyLet": { "level": "warn" },
+        "noShadowRestrictedNames": { "level": "warn" },
+        "noRedundantUseStrict": { "level": "warn" },
+        "noArrayIndexKey": { "level": "warn" },
+        "noRedeclare": { "level": "warn" },
+        "noGlobalIsNan": { "level": "warn" }
+      },
+
+      "performance": {
+        "noDelete": "off",
+        "noAccumulatingSpread": "off"
+      },
+
+      "style": {
+        "useNodejsImportProtocol": "off",
+        "useShorthandAssign": { "level": "warn" },
+        "noUnusedTemplateLiteral": "off",
+        "useImportType": { "level": "warn" },
+        "useExponentiationOperator": "off",
+        "noUselessElse": "off",
+        "useSingleVarDeclarator": "off",
+
+        "noNonNullAssertion": { "level": "warn" },
+        "noParameterAssign": { "level": "warn" },
+        "useConst": { "level": "warn" },
+        "useNumberNamespace": { "level": "warn" },
+        "noInferrableTypes": { "level": "warn" },
+        "useTemplate": { "level": "warn" },
+        "useExportType": { "level": "warn" },
+        "useSelfClosingElements": { "level": "warn" },
+        "useShorthandFunctionType": { "level": "warn" },
+        "noCommaOperator": { "level": "warn" },
+        "noVar": { "level": "warn" }
+      },
+
+      "complexity": {
+        "noForEach": "off",
+        "useRegexLiterals": "off",
+
+        "useOptionalChain": { "level": "warn" },
+        "useLiteralKeys": { "level": "warn" },
+        "useArrowFunction": { "level": "warn" },
+        "useFlatMap": { "level": "warn" },
+        "noUselessSwitchCase": { "level": "warn" },
+        "noExtraBooleanCast": { "level": "warn" },
+        "noBannedTypes": { "level": "warn" },
+        "noUselessFragments": { "level": "warn" },
+        "noUselessTernary": { "level": "warn" }
+      },
+
+      "correctness": {
+        "useExhaustiveDependencies": "off",
+        "noUnsafeOptionalChaining": { "level": "warn" },
+        "noUnnecessaryContinue": { "level": "warn" },
+        "useJsxKeyInIterable": { "level": "warn" }
+      },
+
+      "security": {
+        "noDangerouslySetInnerHtml": { "level": "warn" }
+      },
+      "nursery": {
+        "useSortedClasses": {
+          "level": "off",
+          "options": {
+            "functions": ["classNames"]
+          }
+        }
+      }
+    }
+  },
+
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2
+  },
+
+  "javascript": {
+    "jsxRuntime": "reactClassic",
+    "formatter": {
+      "quoteStyle": "single",
+      "jsxQuoteStyle": "double",
+      "arrowParentheses": "asNeeded",
+      "trailingCommas": "es5"
+    }
+  },
+
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true,
+    "defaultBranch": "develop"
+  }
+}

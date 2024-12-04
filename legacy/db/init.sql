@@ -1,0 +1,36 @@
+
+CREATE TABLE IF NOT EXISTS rooms (
+	id INTEGER PRIMARY KEY,
+	name TEXT NOT NULL,
+	identifier TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS users (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	room_id INTEGER,
+	session_id TEXT,
+	username TEXT NOT NULL UNIQUE,
+	costume TEXT,
+	x INT,
+	y INT,
+	sx INT,
+	last_timestamp INTEGER DEFAULT CURRENT_TIMESTAMP,
+	data JSONB not null default '{}'
+);
+
+CREATE TABLE IF NOT EXISTS events (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	room_id INTEGER,
+	timestamp INTEGER DEFAULT CURRENT_TIMESTAMP,
+	username TEXT,
+	type TEXT,
+	data jsonb not null default '{}'
+);
+
+CREATE TABLE IF NOT EXISTS saves (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	username TEXT UNIQUE NOT NULL,
+	data text default '',
+	save_time INTEGER DEFAULT CURRENT_TIMESTAMP
+)
+
