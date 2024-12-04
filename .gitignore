@@ -8,3 +8,4 @@ managers/__pycache__
 *.pyc
 cert
 backups
+.DS_Store
