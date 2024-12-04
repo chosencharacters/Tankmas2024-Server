@@ -299,6 +299,16 @@ class TankmasServer {
     console.info(`${username} connected`);
   };
 
+  send_server_notification = (text: string, persistent = false) => {
+    this.websockets.broadcast({
+      type: EventType.NotificationMessage,
+      data: {
+        text,
+        persistent,
+      },
+    });
+  };
+
   _client_disconnected = (username: string) => {
     const user = this.user_map[username];
     if (!user) {
