@@ -131,7 +131,15 @@ class TankmasServer {
         const res = await this.websockets.handle_request(req, info);
         if (res) return res;
 
-        return webserver_handler(req, this);
+        const resp = await webserver_handler(req, this);
+        if (resp) {
+          resp.headers.set(
+            'Access-Control-Allow-Origin',
+            'https://uploads.ungrounded.net'
+          );
+          resp.headers.set('Access-Control-Allow-Headers', 'authorization');
+        }
+        return resp;
       } catch (error) {
         console.error(error);
         return new Response(null, { status: 500 });
