@@ -13,7 +13,7 @@ import {
 const certFile = 'ca/cert.pem';
 const keyFile = 'ca/key.pem';
 
-import webserver_handler from './http_handler.ts';
+import webserver_handler from './http/http_handler.ts';
 
 export type ConfigFile = typeof config & {
   ng_app_id?: string;

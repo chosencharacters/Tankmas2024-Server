@@ -1,11 +1,14 @@
-import { validate_request } from './newgrounds.ts';
-import type TankmasServer from './tankmas_server.ts';
+import { validate_request } from '../newgrounds.ts';
+import type TankmasServer from '../tankmas_server.ts';
+import get_premieres from './premieres.ts';
 
 const PLAYERS_ROUTE = new URLPattern({ pathname: '/players' });
 const ROOM_ROUTE = new URLPattern({ pathname: '/rooms/:id' });
 const ROOMS_ROUTE = new URLPattern({ pathname: '/rooms*' });
 
 const SAVES_ROUTE = new URLPattern({ pathname: '/saves' });
+
+const PREMIERES_ROUTE = new URLPattern({ pathname: '/premieres' });
 
 // In this file you can handle requests that are not websocket related.
 const webserver_handler = async (
@@ -74,6 +77,10 @@ const webserver_handler = async (
       server.db.store_user_save(username, body.data);
       return new Response(null, { status: 200 });
     }
+  }
+
+  if (PREMIERES_ROUTE.exec(req.url)) {
+    return get_premieres(req);
   }
 
   return new Response('Not found.', { status: 404 });
