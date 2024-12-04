@@ -1,6 +1,9 @@
 let NG_APP_ID: string | undefined = undefined;
 let DEV_MODE: boolean | undefined = undefined;
 
+/// Checks if a incoming request balongs to an user, and if their session
+/// matches the newgrounds session. returns an object containing the
+/// username and session id, and a bool valid: true.
 export const validate_request = async (request: Request) => {
   if (!NG_APP_ID) {
     DEV_MODE = Deno.env.get('DEV_MODE') === 'true';
@@ -18,14 +21,15 @@ export const validate_request = async (request: Request) => {
       return { valid: false, username, session_id };
     }
 
-    const valid = username && (await validate_user({ username, session_id }));
+    const valid = !!username && (await validate_user({ username, session_id }));
     return { valid, username, session_id };
   }
 
-  if (!auth) return { valid: false };
+  if (!auth) return { valid: false, username: null, session_id: null };
 
   const [type, value] = auth.split(' ');
-  if (type !== 'Basic') return { valid: false };
+  if (type !== 'Basic')
+    return { valid: false, username: null, session_id: null };
 
   const decoded = atob(value);
   const [username, session_id] = decoded.split(':');
@@ -42,7 +46,7 @@ const session_id_cache: { [username: string]: string } = {};
  * Checks the user's NG session. Returns true if session exists
  * and the username matches it.
  */
-export const validate_user = async ({
+const validate_user = async ({
   username,
   session_id,
 }: { username?: string | null; session_id?: string | null }) => {

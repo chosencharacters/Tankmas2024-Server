@@ -7,6 +7,7 @@ const ROOMS_ROUTE = new URLPattern({ pathname: '/rooms*' });
 
 const SAVES_ROUTE = new URLPattern({ pathname: '/saves' });
 
+// In this file you can handle requests that are not websocket related.
 const webserver_handler = async (
   req: Request,
   server: TankmasServer

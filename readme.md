@@ -10,5 +10,5 @@ A websocket server for the tankmas games.
 NG_APP_ID=the app id
 DEV_MODE=true or false
 ```
-3. Run `deno task dev` in your terminal.
-4. Install the VS Code extensions [Deno](https://marketplace.visualstudio.com/items?itemName=denoland.vscode-deno) and [Biome](https://marketplace.visualstudio.com/items?itemName=biomejs.biome) (for code formatting).
+3. Install the VS Code extensions [Deno](https://marketplace.visualstudio.com/items?itemName=denoland.vscode-deno) and [Biome](https://marketplace.visualstudio.com/items?itemName=biomejs.biome) (for code formatting and linting).
+4. Run `deno task dev` in your terminal.

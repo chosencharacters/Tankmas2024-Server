@@ -1,8 +1,8 @@
 import config from '../config.json' with { type: 'json' };
 import WebsocketHandler from './websocket_handler.ts';
-import Room from './room.ts';
+import Room from './entities/room.ts';
+import User from './entities/user.ts';
 import TankmasDB from './tankmas_db.ts';
-import User from './user.ts';
 import {
   EventType,
   type PlayerDefinition,
@@ -13,7 +13,7 @@ import {
 const certFile = 'ca/cert.pem';
 const keyFile = 'ca/key.pem';
 
-import webserver_handler from './webserver_handler.ts';
+import webserver_handler from './http_handler.ts';
 
 export type ConfigFile = typeof config & {
   ng_app_id?: string;
