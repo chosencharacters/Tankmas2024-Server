@@ -141,18 +141,13 @@ class TankmasServer {
         if (req.method === 'OPTIONS') {
           res = new Response(null, { status: 200 });
           res.headers.set('Allow', 'Allow: OPTIONS, GET, HEAD, POST');
-          res.headers.set(
-            'Access-Control-Allow-Origin',
-            '*'
-            //'https://uploads.ungrounded.net'
-          );
-          res.headers.set(
-            'Access-Control-Allow-Headers',
-            '*'
-            //'authorization,content-length',
-          );
         } else {
           res = await webserver_handler(req, this);
+        }
+
+        if (res) {
+          res.headers.set('Access-Control-Allow-Origin', '*');
+          res.headers.set('Access-Control-Allow-Headers', '*');
         }
 
         return res;
