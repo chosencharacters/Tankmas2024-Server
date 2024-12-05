@@ -52,10 +52,6 @@ class WebsocketHandler extends EventEmitter<SocketEventMap> {
     }
   };
 
-  _refresh_user_list = () => {
-    this.client_list = Object.values(this.clients);
-  };
-
   flush_queue = (socket: QueuedSocket) => {
     if (socket.event_queue.length === 0) return;
     const msg: EventQueueMessage = { events: socket.event_queue };
@@ -132,13 +128,18 @@ class WebsocketHandler extends EventEmitter<SocketEventMap> {
       }
     });
 
-    socket.addEventListener('close', () => {
+    socket.addEventListener('close', e => {
       delete this.clients[username];
       this._refresh_user_list();
+      console.info(e);
       this.emit('client_disconnected', username, socket);
     });
 
     return response;
+  };
+
+  _refresh_user_list = () => {
+    this.client_list = Object.values(this.clients);
   };
 }
 
