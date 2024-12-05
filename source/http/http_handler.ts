@@ -91,8 +91,6 @@ const webserver_handler = async (
         { status: 200, headers }
       );
     } else if (req.method === 'POST') {
-      console.info(username, valid);
-
       if (!valid || !username)
         return new Response(null, { status: 403, headers });
       const body = await req.json();

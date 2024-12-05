@@ -79,9 +79,11 @@ class WebsocketHandler extends EventEmitter<SocketEventMap> {
     const { username, session_id, valid } = await validate_request(req);
 
     if (!valid || !username || !session_id) {
-      console.info('User session was invalid.');
+      console.info(`User session was invalid (${username}, ${session_id})`);
       return new Response(null, { status: 403 });
     }
+
+    console.info(`Authenticated as ${username}`);
 
     const { socket, response } = Deno.upgradeWebSocket(req);
 
@@ -131,7 +133,6 @@ class WebsocketHandler extends EventEmitter<SocketEventMap> {
     socket.addEventListener('close', e => {
       delete this.clients[username];
       this._refresh_user_list();
-      console.info(e);
       this.emit('client_disconnected', username, socket);
     });
 
