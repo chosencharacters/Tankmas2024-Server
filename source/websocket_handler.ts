@@ -78,9 +78,12 @@ class WebsocketHandler extends EventEmitter<SocketEventMap> {
       return null;
     }
 
+    console.info('Received new websocket request...');
+
     const { username, session_id, valid } = await validate_request(req);
 
     if (!valid || !username || !session_id) {
+      console.info('User session was invalid.');
       return new Response(null, { status: 403 });
     }
 

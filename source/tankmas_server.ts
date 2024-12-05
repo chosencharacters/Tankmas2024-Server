@@ -135,10 +135,27 @@ class TankmasServer {
     console.info(options.port);
     Deno.serve(options, async (req, info) => {
       try {
-        const res = await this.websockets.handle_request(req, info);
+        let res = await this.websockets.handle_request(req, info);
         if (res) return res;
 
-        return webserver_handler(req, this);
+        if (req.method === 'OPTIONS') {
+          res = new Response(null, { status: 200 });
+          res.headers.set('Allow', 'Allow: OPTIONS, GET, HEAD, POST');
+          res.headers.set(
+            'Access-Control-Allow-Origin',
+            '*'
+            //'https://uploads.ungrounded.net'
+          );
+          res.headers.set(
+            'Access-Control-Allow-Headers',
+            '*'
+            //'authorization,content-length',
+          );
+        } else {
+          res = await webserver_handler(req, this);
+        }
+
+        return res;
       } catch (error) {
         console.error(error);
         return new Response(null, { status: 500 });

@@ -69,36 +69,43 @@ const webserver_handler = async (
     return Response.json({ data }, { status: 200, headers });
   }
 
+  if (PREMIERES_ROUTE.exec(req.url)) {
+    return get_premieres(req);
+  }
+
   // Save/load user saves.
   if (SAVES_ROUTE.exec(req.url)) {
     const { username, valid } = await validate_request(req);
 
-    if (!valid || !username) return new Response(null, { status: 403 });
-
     if (req.method === 'GET') {
+      console.info(username, valid);
+
+      if (!valid || !username)
+        return new Response(null, { status: 403, headers });
+
       const data = server.db.get_user_save(username);
       return Response.json(
         {
           data,
         },
-        { status: 200 }
+        { status: 200, headers }
       );
     } else if (req.method === 'POST') {
+      console.info(username, valid);
+
+      if (!valid || !username)
+        return new Response(null, { status: 403, headers });
       const body = await req.json();
       if (typeof body.data !== 'string') {
-        return new Response(null, { status: 400 });
+        return new Response(null, { status: 400, headers });
       }
 
       server.db.store_user_save(username, body.data);
-      return new Response(null, { status: 200 });
+      return new Response(null, { status: 200, headers });
     }
   }
 
-  if (PREMIERES_ROUTE.exec(req.url)) {
-    return get_premieres(req);
-  }
-
-  return new Response('Not found.', { status: 404 });
+  return new Response('Not found.', { status: 404, headers });
 };
 
 export default webserver_handler;

@@ -12,7 +12,14 @@ const premieres = {
 };
 
 const get_premieres = (_req: Request) => {
-  return Response.json(premieres);
+  const premiere_list = Object.entries(premieres).map(([name, data]) => {
+    return {
+      name,
+      ...data,
+    };
+  });
+  const respo = { data: premiere_list };
+  return Response.json(respo);
 };
 
 export default get_premieres;
