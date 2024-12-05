@@ -15,43 +15,58 @@ const webserver_handler = async (
   req: Request,
   server: TankmasServer
 ): Promise<Response> => {
+  const headers = new Headers();
+  headers.set(
+    'Access-Control-Allow-Origin',
+    '*'
+    //'https://uploads.ungrounded.net'
+  );
+  headers.set(
+    'Access-Control-Allow-Headers',
+    '*'
+    //'authorization,content-length',
+  );
+
   if (PLAYERS_ROUTE.exec(req.url)) {
-    const data = server.users.map(p => p.get_definition());
-    return Response.json({ data }, { status: 200 });
+    const data = server.user_list.map(p => p.get_definition());
+    return Response.json({ data }, { status: 200, headers });
   }
 
   const room_match = ROOM_ROUTE.exec(req.url);
   const room_id_str = room_match ? room_match.pathname.groups.id : undefined;
   if (room_id_str) {
     const room_id = Number.parseInt(room_id_str ?? '');
-    const room = server.rooms[room_id];
+    const room = server._rooms[room_id];
 
     if (Number.isNaN(room_id) || !room) {
-      return new Response('Not found.', { status: 404 });
+      return new Response('Not found.', { status: 404, headers });
     }
 
     const users = Object.fromEntries(
       room.user_list.map(u => [u.username, u.get_definition()])
     );
 
-    return Response.json({
-      data: {
-        ...room,
-        user_list: undefined,
-        users,
+    return Response.json(
+      {
+        data: {
+          ...room,
+          user_list: undefined,
+          users,
+        },
       },
-    });
+      { headers }
+    );
   }
 
   if (ROOMS_ROUTE.exec(req.url)) {
-    const data = Object.values(server.rooms).map(room => {
+    const data = Object.values(server._rooms).map(room => {
       return {
         ...room,
         user_list: room.user_list.map(u => u.get_definition()),
       };
     });
 
-    return Response.json({ data }, { status: 200 });
+    return Response.json({ data }, { status: 200, headers });
   }
 
   // Save/load user saves.

@@ -1,7 +1,8 @@
 import config from '../config.json' with { type: 'json' };
 import WebsocketHandler from './websocket_handler.ts';
+import InputLoop from 'https://deno.land/x/input@2.0.4/index.ts';
 import Room from './entities/room.ts';
-import User from './entities/user.ts';
+import User, { UserState } from './entities/user.ts';
 import TankmasDB from './tankmas_db.ts';
 import {
   EventType,
@@ -10,12 +11,10 @@ import {
   type CustomEvent,
 } from './messages.ts';
 
-const certFile = 'ca/cert.pem';
-const keyFile = 'ca/key.pem';
-
 import webserver_handler from './http/http_handler.ts';
 
 export type ConfigFile = typeof config & {
+  database_path: string;
   ng_app_id?: string;
   ng_app_secret?: string;
   use_tls?: boolean;
@@ -24,18 +23,16 @@ export type ConfigFile = typeof config & {
 const DB_WRITE_INTERVAL = 10000;
 
 class TankmasServer {
-  port: number;
-
   websockets: WebsocketHandler;
 
   db: TankmasDB;
 
   tick_interval: number;
 
-  rooms: { [room_id: number]: Room };
+  _rooms: { [room_id: number]: Room };
+  _users: { [username: string]: User } = {};
 
-  users: User[];
-  user_map: { [username: string]: User } = {};
+  user_list: User[];
 
   previous_user_states: { [username: string]: PlayerDefinition } = {};
 
@@ -54,20 +51,20 @@ class TankmasServer {
 
   constructor(config: ConfigFile) {
     this.config = config;
+    console.info(`Starting with config ${JSON.stringify(config, null, 2)}`);
 
-    this.db = new TankmasDB(config.database_file, config.backup_dir);
+    this.db = new TankmasDB(config.database_path, config.backup_dir);
 
     this.backup_interval_ms = (config.backup_interval ?? 3600) * 1000;
 
-    this.port = config.server_port;
     this.websockets = new WebsocketHandler({
       port: config.server_port,
     });
 
     this.tick_interval = Math.round(1000 / config.tick_rate);
 
-    this.users = [];
-    this.rooms = {};
+    this.user_list = [];
+    this._rooms = {};
 
     if (config.initial_player_data) {
       const sp = config.initial_player_data;
@@ -81,31 +78,37 @@ class TankmasServer {
 
     for (const room_info of config.rooms) {
       const room = new Room(room_info);
-      this.rooms[room.id] = room;
+      this._rooms[room.id] = room;
     }
   }
+
+  get_room = (room_id: number): Room | undefined => this._rooms[room_id];
+  get_user = (username: string): User | undefined => this._users[username];
 
   broadcast_to_room = (
     room_id: number,
     message: MultiplayerEvent,
     immediate = false
   ) => {
-    const room = this.rooms[room_id];
+    const room = this.get_room(room_id);
     if (!room) return;
+
     for (const user of room.user_list) {
       this.websockets.send_to_user(user.username, message, immediate);
     }
   };
 
-  refresh_room_users = () => {
-    for (const room of Object.values(this.rooms)) {
-      room.user_list = this.users.filter(u => u.room_id === room.id);
-    }
+  send_server_notification = (text: string, persistent = false) => {
+    this.websockets.broadcast({
+      type: EventType.NotificationMessage,
+      data: {
+        text,
+        persistent,
+      },
+    });
   };
 
-  run = async () => {
-    await this.db.init();
-
+  run = () => {
     this.websockets.addListener('client_connected', this._client_connected);
     this.websockets.addListener(
       'client_disconnected',
@@ -113,6 +116,9 @@ class TankmasServer {
     );
 
     this.websockets.addListener('client_message', this._client_message);
+
+    const certFile = Deno.env.get('CA_CERT_FILE') ?? 'ca/cert.pem';
+    const keyFile = Deno.env.get('CA_KEY_FILE') ?? 'ca/key.pem';
 
     const port = this.config.server_port;
     const options = this.config.use_tls
@@ -126,20 +132,13 @@ class TankmasServer {
           port,
         };
 
+    console.info(options.port);
     Deno.serve(options, async (req, info) => {
       try {
         const res = await this.websockets.handle_request(req, info);
         if (res) return res;
 
-        const resp = await webserver_handler(req, this);
-        if (resp) {
-          resp.headers.set(
-            'Access-Control-Allow-Origin',
-            'https://uploads.ungrounded.net'
-          );
-          resp.headers.set('Access-Control-Allow-Headers', 'authorization');
-        }
-        return resp;
+        return webserver_handler(req, this);
       } catch (error) {
         console.error(error);
         return new Response(null, { status: 500 });
@@ -151,28 +150,50 @@ class TankmasServer {
       this.exited = true;
 
       console.info('Server shutting down. Saving things to DB...\n');
-      this.write_to_db();
+      this._write_to_db();
 
       if (!is_dev) Deno.exit();
     };
 
-    // Deno.addSignalListener('SIGBREAK', () => on_shutdown());
     Deno.addSignalListener('SIGINT', () => on_shutdown());
     globalThis.addEventListener('unload', () => on_shutdown(true));
 
     this.tick();
+
+    this.await_command();
+  };
+
+  input = new InputLoop();
+
+  await_command = async () => {
+    console.info('>');
+    const full_command = await this.input.read(false);
+    const [name, ...args] = full_command.split(' ');
+    if (name === 'broadcast') {
+      const rest = args.join(' ');
+      if (rest) {
+        console.info(`broadcasting message "${rest}"`);
+        this.send_server_notification(rest);
+      }
+    }
+    this.await_command();
   };
 
   tick = () => {
     const updated_users: User[] = [];
-    for (const user of this.users) {
-      if (user.dirty || user.just_joined) {
+    for (const user of this.user_list) {
+      // Server is still waiting for user.
+      if (user.state === UserState.WaitingForInitialState) {
+        continue;
+      }
+
+      if (user.dirty) {
         user.dirty = false;
         updated_users.push(user);
       }
     }
 
-    this.refresh_room_users();
+    this._refresh_room_users();
 
     const partial_state_updates: {
       room_id: number;
@@ -190,11 +211,11 @@ class TankmasServer {
 
       // If user just connected, or switches rooms
       if (
-        user.just_joined ||
+        user.state === UserState.RequestsFullRoomUpdate ||
         (previous_state?.room_id &&
           previous_state.room_id !== current_state.room_id)
       ) {
-        user.just_joined = false;
+        user.state = UserState.Joined;
 
         const old_room_id = previous_state?.room_id;
         const new_room_id = current_state?.room_id;
@@ -213,8 +234,9 @@ class TankmasServer {
 
         // Send all existing players to new user
         if (new_room_id) {
-          if (this.rooms[new_room_id]) {
-            for (const other_user of this.rooms[new_room_id].user_list) {
+          const room = this.get_room(new_room_id);
+          if (room) {
+            for (const other_user of room.user_list) {
               if (user.username === other_user.username) continue;
               this.websockets.send_to_user(user.username, {
                 type: EventType.PlayerStateUpdate,
@@ -246,7 +268,7 @@ class TankmasServer {
 
     this.time_since_db_write_ms += this.tick_interval;
     if (this.time_since_db_write_ms >= DB_WRITE_INTERVAL) {
-      this.write_to_db();
+      this._write_to_db();
     }
 
     setTimeout(this.tick, this.tick_interval);
@@ -257,7 +279,7 @@ class TankmasServer {
     event: MultiplayerEvent,
     _socket: WebSocket
   ) => {
-    const user = this.user_map[username];
+    const user = this.get_user(username);
     if (!user) {
       console.error(`received event form non existent user ${username}`);
       return;
@@ -266,7 +288,14 @@ class TankmasServer {
     if (event.type === EventType.PlayerStateUpdate) {
       const new_room_id = event.data.room_id;
       const room_id =
-        new_room_id && this.rooms[new_room_id] ? new_room_id : user.room_id;
+        new_room_id && this._rooms[new_room_id] ? new_room_id : user.room_id;
+
+      const changed_rooms = room_id !== user.room_id;
+
+      if (changed_rooms || user.state === UserState.WaitingForInitialState) {
+        user.state = UserState.RequestsFullRoomUpdate;
+      }
+
       user.set_definition({ ...event.data, username, room_id });
     }
 
@@ -289,7 +318,6 @@ class TankmasServer {
 
   _client_connected = (username: string, _socket: WebSocket) => {
     const user = new User({ username });
-    user.just_joined = true;
 
     this.db.create_user(username, this.initial_user_state);
 
@@ -300,25 +328,15 @@ class TankmasServer {
       user.set_definition(existing);
     }
 
-    this.user_map[username] = user;
-    this.users = Object.values(this.user_map);
-    this.refresh_room_users();
+    this._users[username] = user;
+    this.user_list = Object.values(this._users);
+    this._refresh_room_users();
 
     console.info(`${username} connected`);
   };
 
-  send_server_notification = (text: string, persistent = false) => {
-    this.websockets.broadcast({
-      type: EventType.NotificationMessage,
-      data: {
-        text,
-        persistent,
-      },
-    });
-  };
-
   _client_disconnected = (username: string) => {
-    const user = this.user_map[username];
+    const user = this.get_user(username);
     if (!user) {
       console.error(`Tried disconnecting non existent user ${username}`);
       return;
@@ -327,11 +345,11 @@ class TankmasServer {
     // Write the current data to db when they disconnect.
     this.db.update_user(user);
 
-    delete this.user_map[username];
+    delete this._users[username];
     delete this.previous_user_states[username];
 
-    this.users = Object.values(this.user_map);
-    this.refresh_room_users();
+    this.user_list = Object.values(this._users);
+    this._refresh_room_users();
 
     this.websockets.broadcast({
       type: EventType.PlayerLeft,
@@ -341,11 +359,17 @@ class TankmasServer {
     console.info(`${username} disconnected`);
   };
 
-  write_to_db = () => {
+  _refresh_room_users = () => {
+    for (const room of Object.values(this._rooms)) {
+      room.user_list = this.user_list.filter(u => u.room_id === room.id);
+    }
+  };
+
+  _write_to_db = () => {
     this.time_since_db_write_ms = 0;
     this.time_since_backup_ms += DB_WRITE_INTERVAL;
 
-    const users = this.users.map(user => user.get_definition());
+    const users = this.user_list.map(user => user.get_definition());
 
     this.db.update_users(users);
 

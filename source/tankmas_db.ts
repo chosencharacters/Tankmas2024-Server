@@ -3,6 +3,9 @@ import * as path from 'jsr:@std/path';
 import type { CustomEvent, PlayerDefinition } from './messages.ts';
 import { format } from 'jsr:@std/datetime';
 
+/**
+ * Contains methods for reading and writing values to DB
+ */
 class TankmasDB {
   db: DB;
 
@@ -14,12 +17,11 @@ class TankmasDB {
     this.db = new DB(db_path);
     this.db_path = db_path;
     this.backup_dir = backup_dir;
-  }
 
-  init = async () => {
-    const initial_query = await Deno.readTextFile('migrations/initial.sql');
-    await this.db.execute(initial_query);
-  };
+    // Run initialization query to create tables if none exist
+    const initial_query = Deno.readTextFileSync('migrations/initial.sql');
+    this.db.execute(initial_query);
+  }
 
   create_user = (
     username: string,

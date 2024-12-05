@@ -10,7 +10,7 @@ import TankmasServer from './source/tankmas_server.ts';
 
 // Learn more at https://docs.deno.com/runtime/manual/examples/module_metadata#concepts
 if (import.meta.main) {
-  const use_tls = Deno.env.has('USE_TLS');
+  const use_tls = Deno.env.get('USE_TLS') === 'true';
 
   const ng_app_id = Deno.env.get('NG_APP_ID');
   const ng_app_secret = Deno.env.get('NG_APP_SECRET');
@@ -22,8 +22,17 @@ if (import.meta.main) {
     ? Deno.env.get('DEV_MODE') === 'true'
     : config.dev_mode;
 
+  const data_dir = Deno.env.get('DATA_DIR') ?? config.data_dir;
+
+  const database_file = Deno.env.get('DATABASE_FILE') ?? config.database_file;
+  const database_path = `${data_dir}/${database_file}`;
+  const backup_dir = `${data_dir}/${config.backup_dir}`;
+
   const server = new TankmasServer({
     ...config,
+    data_dir,
+    backup_dir,
+    database_path,
     server_port,
     use_tls,
     ng_app_id,

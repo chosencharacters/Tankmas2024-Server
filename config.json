@@ -4,7 +4,8 @@
 
   "dev_mode": false,
 
-  "database_file": "data/tankmas.db",
+  "data_dir": "data",
+  "database_file": "tankmas.db",
 
   "backup_interval": 3600,
   "backup_dir": "backups",
