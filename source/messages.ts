@@ -26,14 +26,28 @@ const player_def = z.object({
   data: z.record(z.unknown()).optional(),
 });
 
+const full_player_def = z
+  .object({
+    total_online_time: z.number().optional(),
+    current_session_time: z.number().optional(),
+  })
+  .merge(player_def);
+
 export type PlayerDefinition = z.infer<typeof player_def>;
 
+// Includes more detailed info,
+export type FullPlayerDefinition = z.infer<typeof full_player_def>;
+
+/**
+ * Network messages
+ */
 const position_update_event = z.object({
   type: z.literal(EventType.PlayerStateUpdate),
   data: player_def.merge(
     z.object({
       username: z.string().optional(),
       immediate: z.boolean().optional(),
+      request_full_room: z.boolean().optional(),
     })
   ),
   timestamp: z.number().optional(),

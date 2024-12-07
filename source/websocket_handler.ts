@@ -13,7 +13,7 @@ export type WebsocketHandlerOptions = {
 };
 
 interface SocketEventMap {
-  client_connected: [username: string, WebSocket];
+  client_connected: [{ username: string; session_id: string }, WebSocket];
   client_disconnected: [username: string, WebSocket];
   client_message: [username: string, MultiplayerEvent, WebSocket];
 }
@@ -90,7 +90,7 @@ class WebsocketHandler extends EventEmitter<SocketEventMap> {
     socket.addEventListener('open', () => {
       this.clients[username] = { socket, event_queue: [] };
       this._refresh_user_list();
-      this.emit('client_connected', username, socket);
+      this.emit('client_connected', { username, session_id }, socket);
     });
 
     socket.addEventListener('message', event => {
@@ -130,7 +130,7 @@ class WebsocketHandler extends EventEmitter<SocketEventMap> {
       }
     });
 
-    socket.addEventListener('close', e => {
+    socket.addEventListener('close', _e => {
       delete this.clients[username];
       this._refresh_user_list();
       this.emit('client_disconnected', username, socket);

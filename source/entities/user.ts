@@ -23,6 +23,9 @@ class User {
 
   timestamp = Date.now();
 
+  total_online_time = 0;
+  current_session_time = 0;
+
   dirty = false;
 
   constructor({ username }: { username: string }) {

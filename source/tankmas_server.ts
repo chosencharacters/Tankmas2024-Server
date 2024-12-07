@@ -12,6 +12,7 @@ import {
 } from './messages.ts';
 
 import webserver_handler from './http/http_handler.ts';
+import { set_session_id_cache } from './newgrounds.ts';
 
 export type ConfigFile = typeof config & {
   database_path: string;
@@ -21,6 +22,7 @@ export type ConfigFile = typeof config & {
 };
 
 const DB_WRITE_INTERVAL = 10000;
+type RoomId = string | number;
 
 class TankmasServer {
   websockets: WebsocketHandler;
@@ -29,7 +31,7 @@ class TankmasServer {
 
   tick_interval: number;
 
-  _rooms: { [room_id: number]: Room };
+  _rooms: { [room_id: RoomId]: Room };
   _users: { [username: string]: User } = {};
 
   user_list: User[];
@@ -51,7 +53,7 @@ class TankmasServer {
 
   constructor(config: ConfigFile) {
     this.config = config;
-    console.info(`Starting with config ${JSON.stringify(config, null, 2)}`);
+    console.info('Starting Tankmas Server...');
 
     this.db = new TankmasDB(config.database_path, config.backup_dir);
 
@@ -66,23 +68,31 @@ class TankmasServer {
     this.user_list = [];
     this._rooms = {};
 
-    if (config.initial_player_data) {
-      const sp = config.initial_player_data;
-      this.initial_user_state = {
-        room_id: sp.room_id,
-        x: sp.x,
-        y: sp.y,
-        data: sp.data,
-      };
-    }
-
-    for (const room_info of config.rooms) {
-      const room = new Room(room_info);
-      this._rooms[room.id] = room;
-    }
+    this._load_stored_user_ids();
   }
 
-  get_room = (room_id: number): Room | undefined => this._rooms[room_id];
+  /**
+   * gets room object, creates new one if it doesn't exist.
+   */
+  get_room = (room_id: number): Room => {
+    const existing = this._rooms[room_id];
+    if (existing) return existing;
+
+    const room_config = this.config.rooms.find(r => r.id === room_id);
+
+    const room = new Room(
+      room_config ?? {
+        id: room_id,
+        name: `Room ${room_id}`,
+        identifier: `room_${room_id}`,
+        maps: [],
+      }
+    );
+
+    this._rooms[room_id] = room;
+
+    return room;
+  };
   get_user = (username: string): User | undefined => this._users[username];
 
   broadcast_to_room = (
@@ -132,7 +142,6 @@ class TankmasServer {
           port,
         };
 
-    console.info(options.port);
     Deno.serve(options, async (req, info) => {
       try {
         let res = await this.websockets.handle_request(req, info);
@@ -181,11 +190,12 @@ class TankmasServer {
     console.info('>');
     const full_command = await this.input.read(false);
     const [name, ...args] = full_command.split(' ');
-    if (name === 'broadcast') {
+    if (name === 'broadcast' || name === 'broadcast_sticky') {
       const rest = args.join(' ');
       if (rest) {
+        const sticky = name === 'broadcast_sticky';
         console.info(`broadcasting message "${rest}"`);
-        this.send_server_notification(rest);
+        this.send_server_notification(rest, sticky);
       }
     }
     this.await_command();
@@ -194,6 +204,10 @@ class TankmasServer {
   tick = () => {
     const updated_users: User[] = [];
     for (const user of this.user_list) {
+      // update user total online time
+      user.total_online_time += this.tick_interval;
+      user.current_session_time += this.tick_interval;
+
       // Server is still waiting for user.
       if (user.state === UserState.WaitingForInitialState) {
         continue;
@@ -299,12 +313,20 @@ class TankmasServer {
 
     if (event.type === EventType.PlayerStateUpdate) {
       const new_room_id = event.data.room_id;
+      if (new_room_id) {
+        // Create room if it doesn't exist.
+        this.get_room(new_room_id);
+      }
       const room_id =
         new_room_id && this._rooms[new_room_id] ? new_room_id : user.room_id;
 
       const changed_rooms = room_id !== user.room_id;
 
-      if (changed_rooms || user.state === UserState.WaitingForInitialState) {
+      if (
+        changed_rooms ||
+        user.state === UserState.WaitingForInitialState ||
+        event.data.request_full_room
+      ) {
         user.state = UserState.RequestsFullRoomUpdate;
       }
 
@@ -328,16 +350,18 @@ class TankmasServer {
     }
   };
 
-  _client_connected = (username: string, _socket: WebSocket) => {
+  _client_connected = (
+    { username, session_id }: { username: string; session_id: string },
+    _socket: WebSocket
+  ) => {
     const user = new User({ username });
 
-    this.db.create_user(username, this.initial_user_state);
+    this.db.create_user(username, session_id);
 
     const existing = this.db.get_user(username);
     if (existing) {
-      existing.x = this.initial_user_state?.x;
-      existing.y = this.initial_user_state?.y;
-      user.set_definition(existing);
+      user.total_online_time = existing.total_online_time ?? 0;
+      user.current_session_time = existing.total_online_time ?? 0;
     }
 
     this._users[username] = user;
@@ -381,7 +405,7 @@ class TankmasServer {
     this.time_since_db_write_ms = 0;
     this.time_since_backup_ms += DB_WRITE_INTERVAL;
 
-    const users = this.user_list.map(user => user.get_definition());
+    const users = this.user_list;
 
     this.db.update_users(users);
 
@@ -396,6 +420,12 @@ class TankmasServer {
       console.info('Created backup of database.');
     }
   };
+
+  _load_stored_user_ids() {
+    const user_sessions = this.db.get_user_sessions();
+    console.info(user_sessions);
+    set_session_id_cache(user_sessions);
+  }
 }
 
 export default TankmasServer;

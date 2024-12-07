@@ -40,7 +40,14 @@ export const validate_request = async (request: Request) => {
   return { username, session_id, valid };
 };
 
-const session_id_cache: { [username: string]: string } = {};
+type UserSessionCache = { [username: string]: string };
+const session_id_cache: UserSessionCache = {};
+
+export const set_session_id_cache = (c: UserSessionCache) => {
+  for (const [username, session_id] of Object.entries(c)) {
+    session_id_cache[username] = session_id;
+  }
+};
 
 /**
  * Checks the user's NG session. Returns true if session exists

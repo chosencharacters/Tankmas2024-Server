@@ -1,7 +1,11 @@
 import { DB } from 'https://deno.land/x/sqlite@v3.9.1/mod.ts';
 import * as path from 'jsr:@std/path';
-import type { CustomEvent, PlayerDefinition } from './messages.ts';
+import type {
+  CustomEvent,
+  FullPlayerDefinition,
+} from './messages.ts';
 import { format } from 'jsr:@std/datetime';
+import type User from './entities/user.ts';
 
 /**
  * Contains methods for reading and writing values to DB
@@ -18,15 +22,41 @@ class TankmasDB {
     this.db_path = db_path;
     this.backup_dir = backup_dir;
 
-    // Run initialization query to create tables if none exist
-    const initial_query = Deno.readTextFileSync('migrations/initial.sql');
-    this.db.execute(initial_query);
+    this.run_migrations();
   }
 
-  create_user = (
-    username: string,
-    default_values?: Omit<PlayerDefinition, 'username' | 'timestamp'>
-  ) => {
+  initiate_user_session = (username: string, session_id: string) => {
+    if (!username || !session_id) return;
+    const last_sign_in_time = Date.now();
+    this.db.query(
+      `UPDATE users 
+      SET 
+        session_id = :session_id,
+        last_sign_in_time = :last_sign_in_time
+      WHERE username=:username`,
+      { username, session_id, last_sign_in_time }
+    );
+  };
+
+  get_user_sessions = (): { [username: string]: string } => {
+    const session_timeout_time = Date.now() - 60 * 1000 * 10;
+    const res = this.db.query<[string, string]>(
+      `SELECT username, session_id 
+      FROM users
+      WHERE session_id NOT NULL
+      AND last_timestamp > :session_timeout_time`,
+      { session_timeout_time }
+    );
+
+    const session_map: { [username: string]: string } = {};
+    for (const [username, session_id] of res) {
+      session_map[username] = session_id;
+    }
+
+    return session_map;
+  };
+
+  create_user = (username: string, session_id: string) => {
     const [created] = this.db.query(
       `INSERT INTO users(username) 
       VALUES(:username)
@@ -36,22 +66,26 @@ class TankmasDB {
       { username }
     );
 
-    if (created && default_values) {
-      const current = this.get_user(username);
-      const new_def = {
-        username,
-        ...current,
-        ...default_values,
-      };
+    this.initiate_user_session(username, session_id);
 
-      this.update_user(new_def);
-    }
+    return !!created;
   };
 
-  update_users = (users: PlayerDefinition[]) => {
+  update_users = (users: User[]) => {
     const db = this.db;
     const values = users.map(user => {
-      const { x, y, sx, costume, data, username, room_id, timestamp } = user;
+      const {
+        x,
+        y,
+        sx,
+        costume,
+        data,
+        username,
+        room_id,
+        timestamp,
+        total_online_time,
+        current_session_time,
+      } = user;
 
       return {
         x,
@@ -62,6 +96,8 @@ class TankmasDB {
         room_id,
         timestamp,
         username,
+        total_online_time,
+        current_session_time,
       };
     });
 
@@ -73,7 +109,9 @@ class TankmasDB {
         costume = :costume,
         data = :data,
         room_id = :room_id,
-        last_timestamp = :timestamp
+        last_timestamp = :timestamp,
+        total_online_time = :total_online_time,
+        current_session_time = :current_session_time
       WHERE username = :username
     `
     );
@@ -81,7 +119,7 @@ class TankmasDB {
     for (const v of values) q.execute(v);
   };
 
-  update_user = (user: PlayerDefinition) => {
+  update_user = (user: User) => {
     return this.update_users([user]);
   };
 
@@ -124,15 +162,17 @@ class TankmasDB {
     }
   };
 
-  get_user = (username: string): PlayerDefinition | undefined => {
+  get_user = (username: string): FullPlayerDefinition | undefined => {
     const [user] = this.db.query<
       [
-        number,
-        number,
-        number,
-        string | undefined,
-        number | undefined,
-        string | undefined,
+        number, // x
+        number, // y
+        number, // sx
+        string | undefined, // costume
+        number | undefined, // room_id
+        string | undefined, // data
+        number, // total_online_time
+        number, // current_session_time
       ]
     >(
       `SELECT 
@@ -141,7 +181,9 @@ class TankmasDB {
         sx,
         costume,
         room_id,
-        data
+        data,
+        total_online_time,
+        current_session_time
        FROM users 
        WHERE username=?`,
       [username]
@@ -149,7 +191,16 @@ class TankmasDB {
 
     if (!user) return undefined;
 
-    const [x, y, sx, costume, room_id, data_string] = user;
+    const [
+      x,
+      y,
+      sx,
+      costume,
+      room_id,
+      data_string,
+      total_online_time,
+      current_session_time,
+    ] = user;
     const data = JSON.parse(data_string ?? '{}');
 
     return {
@@ -160,6 +211,8 @@ class TankmasDB {
       costume,
       room_id,
       data,
+      total_online_time,
+      current_session_time,
     };
   };
 
@@ -186,6 +239,36 @@ class TankmasDB {
     const formatted_date = format(now, 'yyyy-MM-dd_HHmmss');
     const name = `${formatted_date}.backup.db`;
     Deno.copyFile(this.db_path, `${this.backup_dir}/${name}`);
+  };
+
+  /**
+   * migrations are numbered, and will run once in numerical order.
+   * this is so that we can make modifications to the DB structure
+   * automatically on startup.
+   */
+  run_migrations = () => {
+    // Run initialization query to create tables if none exist
+    const initial_query = Deno.readTextFileSync('migrations/initial.sql');
+    this.db.execute(initial_query);
+
+    const migration_file_names = [];
+    for (const f of Deno.readDirSync('migrations')) {
+      if (!f.isFile) continue;
+      if (f.name === 'initial.sql') continue;
+      migration_file_names.push(f.name);
+    }
+    const sorted = migration_file_names.sort((a, b) => a.localeCompare(b));
+    const names = this.db.query<[string]>(`SELECT name from migrations`);
+
+    for (const migration_name of sorted) {
+      if (names?.find(n => n[0] === migration_name)) continue;
+      const query = Deno.readTextFileSync(`migrations/${migration_name}`);
+      console.info(`Running migration ${migration_name}`);
+      this.db.execute(query);
+      this.db.query(`INSERT INTO migrations(name) VALUES(:migration_name);`, {
+        migration_name,
+      });
+    }
   };
 }
 

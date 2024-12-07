@@ -14,10 +14,6 @@
   "user_def_vals": ["x", "y", "costume", "sx"],
 
   "initial_player_data": {
-    "room_id": 1,
-    "x": 1500,
-    "y": 150,
-    "costume": "tankman",
     "data": {}
   },
   "rooms": [
