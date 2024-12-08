@@ -17,7 +17,7 @@ class User {
 
   costume?: string;
 
-  data: Record<string, unknown> = {};
+  data: { [name: string]: unknown } = {};
 
   room_id?: number;
 
@@ -41,7 +41,12 @@ class User {
 
     this.costume = d.costume ?? this.costume;
 
-    this.data = d.data ?? this.data;
+    if (d.data) {
+      this.data = {
+        ...this.data,
+        ...d.data,
+      };
+    }
 
     this.room_id = d.room_id ?? this.room_id;
 
@@ -71,8 +76,23 @@ class User {
   get_definition_diff = (
     previous: PlayerDefinition
   ): Omit<PlayerDefinition, 'username'> => {
-    const { x, y, sx, costume, data, room_id, timestamp } = this;
+    const definition = this.get_definition();
+
+    const { x, y, sx, costume, data, room_id, timestamp } = definition;
+
     const p = previous;
+
+    const modified_data_entries = data
+      ? Object.entries(data).filter(([name, value]) => {
+          const previous_value = previous[name as keyof PlayerDefinition];
+          return previous_value !== value;
+        })
+      : undefined;
+
+    const modified_data = modified_data_entries
+      ? Object.fromEntries(modified_data_entries)
+      : undefined;
+
     return {
       x: p.x !== x ? x : undefined,
       y: p.y !== y ? y : undefined,
@@ -80,7 +100,7 @@ class User {
       costume: p.costume !== costume ? costume : undefined,
       room_id: p.room_id !== room_id ? room_id : undefined,
       timestamp: p.timestamp !== timestamp ? timestamp : undefined,
-      data: p.data !== data ? data : undefined,
+      data: modified_data,
     };
   };
 }
