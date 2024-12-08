@@ -67,7 +67,7 @@ class User {
       y,
       sx,
       costume,
-      data,
+      data: { ...data },
       room_id,
       timestamp,
     };
@@ -82,14 +82,16 @@ class User {
 
     const p = previous;
 
+    const previous_data = p.data ?? {};
+
     const modified_data_entries = data
       ? Object.entries(data).filter(([name, value]) => {
-          const previous_value = previous[name as keyof PlayerDefinition];
+          const previous_value = previous_data[name as keyof PlayerDefinition];
           return previous_value !== value;
         })
       : undefined;
 
-    const modified_data = modified_data_entries
+    const modified_data = modified_data_entries?.length
       ? Object.fromEntries(modified_data_entries)
       : undefined;
 
