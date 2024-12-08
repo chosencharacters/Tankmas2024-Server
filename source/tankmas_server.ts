@@ -452,7 +452,6 @@ class TankmasServer {
 
   _load_stored_user_ids() {
     const user_sessions = this.db.get_user_sessions();
-    console.info(user_sessions);
     set_session_id_cache(user_sessions);
   }
 }
