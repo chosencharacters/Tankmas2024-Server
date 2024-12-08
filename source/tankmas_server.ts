@@ -30,6 +30,7 @@ class TankmasServer {
   db: TankmasDB;
 
   tick_interval: number;
+  last_tick_time = Date.now();
 
   _rooms: { [room_id: RoomId]: Room };
   _users: { [username: string]: User } = {};
@@ -209,7 +210,12 @@ class TankmasServer {
     this.await_command();
   };
 
+  get_time_since_tick() {
+    return Date.now() - this.last_tick_time;
+  }
+
   tick = () => {
+    this.last_tick_time = Date.now();
     const updated_users: User[] = [];
     for (const user of this.user_list) {
       // update user total online time
@@ -385,6 +391,10 @@ class TankmasServer {
       console.error(`Tried disconnecting non existent user ${username}`);
       return;
     }
+
+    const extra_time = this.get_time_since_tick();
+    user.total_online_time += extra_time;
+    user.current_session_time += extra_time;
 
     // Write the current data to db when they disconnect.
     this.db.update_user(user);
