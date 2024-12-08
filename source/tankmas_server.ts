@@ -13,6 +13,7 @@ import {
 
 import webserver_handler from './http/http_handler.ts';
 import { set_session_id_cache } from './newgrounds.ts';
+import { format_time } from './util.ts';
 
 export type ConfigFile = typeof config & {
   database_path: string;
@@ -204,11 +205,8 @@ class TankmasServer {
       const player_count = `Player Count: ${this.user_list.length}`;
       const user_list = this.user_list
         .map(u => {
-          const seconds = Math.round(u.current_session_time / 1000);
-          const minutes = Math.floor(seconds / 60);
-          const hours = Math.floor(minutes / 60);
-
-          return `${u.username} - ${hours}:${minutes - hours * 60}:${seconds % 60})`;
+          const seconds = u.current_session_time / 1000.0;
+          return `${u.username} - ${format_time(seconds)})`;
         })
         .join('\n');
       console.info(user_list);
@@ -402,7 +400,10 @@ class TankmasServer {
 
     const extra_time = this.get_time_since_tick();
     user.total_online_time += extra_time;
+
     user.current_session_time += extra_time;
+    const session_time = user.current_session_time / 1000.0;
+    user.current_session_time = 0;
 
     // Write the current data to db when they disconnect.
     this.db.update_user(user);
@@ -418,7 +419,9 @@ class TankmasServer {
       data: user.get_definition(),
     });
 
-    console.info(`${username} disconnected`);
+    console.info(
+      `${username} disconnected. Was online for ${format_time(session_time)}`
+    );
   };
 
   _refresh_room_users = () => {
