@@ -25,8 +25,10 @@ export const validate_request = async (request: Request) => {
     return { valid, username, session_id };
   }
 
+  // If no auth header or session query parameters, user's not logged in in any way.
   if (!auth) return { valid: false, username: null, session_id: null };
 
+  // Check basic authorization header
   const [type, value] = auth.split(' ');
   if (type !== 'Basic')
     return { valid: false, username: null, session_id: null };

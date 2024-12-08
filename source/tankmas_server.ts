@@ -202,7 +202,15 @@ class TankmasServer {
 
     if (name === 'players' || name === 'list') {
       const player_count = `Player Count: ${this.user_list.length}`;
-      const user_list = this.user_list.map(u => u.username).join('\n');
+      const user_list = this.user_list
+        .map(u => {
+          const seconds = Math.round(u.current_session_time / 1000);
+          const minutes = Math.floor(seconds / 60);
+          const hours = Math.floor(minutes / 60);
+
+          return `${u.username} - ${hours}:${minutes - hours * 60}:${seconds % 60})`;
+        })
+        .join('\n');
       console.info(user_list);
       console.info(player_count);
     }
@@ -375,7 +383,7 @@ class TankmasServer {
     const existing = this.db.get_user(username);
     if (existing) {
       user.total_online_time = existing.total_online_time ?? 0;
-      user.current_session_time = existing.total_online_time ?? 0;
+      user.current_session_time = existing.current_session_time ?? 0;
     }
 
     this._users[username] = user;
