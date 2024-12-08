@@ -198,6 +198,14 @@ class TankmasServer {
         this.send_server_notification(rest, sticky);
       }
     }
+
+    if (name === 'players' || name === 'list') {
+      const player_count = `Player Count: ${this.user_list.length}`;
+      const user_list = this.user_list.map(u => u.username).join('\n');
+      console.info(user_list);
+      console.info(player_count);
+    }
+
     this.await_command();
   };
 
