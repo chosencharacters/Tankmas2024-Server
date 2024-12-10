@@ -50,16 +50,9 @@ class NewgroundsHeartbeat extends EventEmitter<NewgroundsHeartbeatEventMap> {
       const should_ping = now - last_ping > HEARTBEAT_INTERVAL_MS;
       if (!should_ping) continue;
 
-      console.info(`Pinging NG for user ${username}`);
-      ng_ping(session_id).then(res => {
-        const valid = true;
-        if (!valid) {
-          this.remove_session(username);
-          this.emit('on_session_expired', { username, session_id });
-        } else {
-          console.info('session still ok');
-        }
-      });
+      console.info(`Pinging NG API for user ${username}`);
+
+      ng_ping(session_id);
 
       this.sessions[username].last_ping = now;
     }
