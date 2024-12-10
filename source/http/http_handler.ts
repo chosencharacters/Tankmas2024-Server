@@ -78,8 +78,6 @@ const webserver_handler = async (
     const { username, valid } = await validate_request(req);
 
     if (req.method === 'GET') {
-      console.info(username, valid);
-
       if (!valid || !username)
         return new Response(null, { status: 403, headers });
 

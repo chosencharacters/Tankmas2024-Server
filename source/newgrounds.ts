@@ -1,5 +1,3 @@
-import { string } from 'https://deno.land/x/zod@v3.23.8/types.ts';
-
 let NG_APP_ID: string | undefined = undefined;
 let DEV_MODE: boolean | undefined = undefined;
 
