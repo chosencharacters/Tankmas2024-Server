@@ -4,6 +4,8 @@ import InputLoop from 'https://deno.land/x/input@2.0.4/index.ts';
 import Room from './entities/room.ts';
 import User, { UserState } from './entities/user.ts';
 import TankmasDB from './tankmas_db.ts';
+import * as commands from './commands/index.ts';
+
 import {
   EventType,
   type PlayerDefinition,
@@ -14,6 +16,7 @@ import {
 import webserver_handler from './http/http_handler.ts';
 import { set_session_id_cache } from './newgrounds.ts';
 import { format_time } from './util.ts';
+import NewgroundsHeartbeat from './newgrounds_heartbeat.ts';
 
 export type ConfigFile = typeof config & {
   database_path: string;
@@ -27,6 +30,7 @@ type RoomId = string | number;
 
 class TankmasServer {
   websockets: WebsocketHandler;
+  ng_heartbeat: NewgroundsHeartbeat;
 
   db: TankmasDB;
 
@@ -71,6 +75,8 @@ class TankmasServer {
     this._rooms = {};
 
     this._load_stored_user_ids();
+
+    this.ng_heartbeat = new NewgroundsHeartbeat();
   }
 
   /**
@@ -97,28 +103,49 @@ class TankmasServer {
   };
   get_user = (username: string): User | undefined => this._users[username];
 
+  broadcast = (msg: MultiplayerEvent, immediate?: boolean) =>
+    this.websockets.broadcast(msg, immediate);
+
   broadcast_to_room = (
     room_id: number,
     message: MultiplayerEvent,
     immediate = false
   ) => {
     const room = this.get_room(room_id);
-    if (!room) return;
+    if (!room) {
+      console.warn(`Could not find room with ID ${room_id}.`);
+      return;
+    }
 
     for (const user of room.user_list) {
       this.websockets.send_to_user(user.username, message, immediate);
     }
   };
 
-  send_server_notification = (text: string, persistent = false) => {
-    this.websockets.broadcast({
+  send_server_notification = (
+    text: string,
+    persistent = false,
+    room_id?: number
+  ) => {
+    const msg = {
       type: EventType.NotificationMessage,
       data: {
         text,
         persistent,
       },
-    });
+    };
+    if (!room_id) this.broadcast(msg);
+    else this.broadcast_to_room(room_id, msg);
   };
+
+  stop() {
+    if (this.exited) return;
+    this.exited = true;
+    this.ng_heartbeat.stop();
+
+    console.info('Server shutting down. Saving things to DB...\n');
+    this._write_to_db();
+  }
 
   run = () => {
     this.websockets.addListener('client_connected', this._client_connected);
@@ -128,6 +155,11 @@ class TankmasServer {
     );
 
     this.websockets.addListener('client_message', this._client_message);
+
+    // Add listeners to heartbeat
+    this.websockets.on('client_connected', this.ng_heartbeat.add_session);
+    this.websockets.on('client_disconnected', this.ng_heartbeat.remove_session);
+    this.ng_heartbeat.start();
 
     const certFile = Deno.env.get('CA_CERT_FILE') ?? 'ca/cert.pem';
     const keyFile = Deno.env.get('CA_KEY_FILE') ?? 'ca/key.pem';
@@ -169,12 +201,7 @@ class TankmasServer {
     });
 
     const on_shutdown = (is_dev = false) => {
-      if (this.exited) return;
-      this.exited = true;
-
-      console.info('Server shutting down. Saving things to DB...\n');
-      this._write_to_db();
-
+      this.stop();
       if (!is_dev) Deno.exit();
     };
 
@@ -192,25 +219,12 @@ class TankmasServer {
     console.info('>');
     const full_command = await this.input.read(false);
     const [name, ...args] = full_command.split(' ');
-    if (name === 'broadcast' || name === 'broadcast_sticky') {
-      const rest = args.join(' ');
-      if (rest) {
-        const sticky = name === 'broadcast_sticky';
-        console.info(`broadcasting message "${rest}"`);
-        this.send_server_notification(rest, sticky);
-      }
-    }
 
-    if (name === 'players' || name === 'list') {
-      const player_count = `Player Count: ${this.user_list.length}`;
-      const user_list = this.user_list
-        .map(u => {
-          const seconds = u.current_session_time / 1000.0;
-          return `${u.username} - ${format_time(seconds)})`;
-        })
-        .join('\n');
-      console.info(user_list);
-      console.info(player_count);
+    const command = commands[name as keyof typeof commands];
+    if (command) {
+      await command({ name, args, server: this });
+    } else if (name) {
+      console.info(`Unknown command "${name}"`);
     }
 
     this.await_command();

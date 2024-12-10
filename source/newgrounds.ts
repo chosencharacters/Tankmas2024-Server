@@ -1,3 +1,5 @@
+import { string } from 'https://deno.land/x/zod@v3.23.8/types.ts';
+
 let NG_APP_ID: string | undefined = undefined;
 let DEV_MODE: boolean | undefined = undefined;
 
@@ -21,7 +23,8 @@ export const validate_request = async (request: Request) => {
       return { valid: false, username, session_id };
     }
 
-    const valid = !!username && (await validate_user({ username, session_id }));
+    const valid =
+      !!username && (await ng_check_session({ username, session_id }));
     return { valid, username, session_id };
   }
 
@@ -38,7 +41,7 @@ export const validate_request = async (request: Request) => {
 
   if (DEV_MODE) return { username, session_id, valid: true };
 
-  const valid = await validate_user({ username, session_id });
+  const valid = await ng_check_session({ username, session_id });
   return { username, session_id, valid };
 };
 
@@ -51,21 +54,42 @@ export const set_session_id_cache = (c: UserSessionCache) => {
   }
 };
 
+const ng_request = async ({
+  component,
+  session_id,
+}: { component: string; session_id: string }) => {
+  if (!NG_APP_ID) {
+    NG_APP_ID = Deno.env.get('NG_APP_ID');
+    DEV_MODE = Deno.env.get('DEV_MODE') === 'true';
+  }
+
+  const data = {
+    app_id: NG_APP_ID,
+    session_id,
+    execute: {
+      component,
+    },
+  };
+
+  const body = new URLSearchParams();
+  body.set('request', JSON.stringify(data));
+
+  return await fetch('https://www.newgrounds.io/gateway_v3.php', {
+    body,
+    method: 'POST',
+  });
+};
+
 /**
  * Checks the user's NG session. Returns true if session exists
  * and the username matches it.
  */
-const validate_user = async ({
+export const ng_check_session = async ({
   username,
   session_id,
 }: { username?: string | null; session_id?: string | null }) => {
   try {
     if (!username || !session_id) return false;
-
-    if (!NG_APP_ID) {
-      NG_APP_ID = Deno.env.get('NG_APP_ID');
-      DEV_MODE = Deno.env.get('DEV_MODE') === 'true';
-    }
 
     if (DEV_MODE) {
       console.info('dev mode. skip validating NG session.');
@@ -82,21 +106,7 @@ const validate_user = async ({
       return true;
     }
 
-    const data = {
-      app_id: NG_APP_ID,
-      session_id,
-      execute: {
-        component: 'App.checkSession',
-      },
-    };
-
-    const body = new URLSearchParams();
-    body.set('request', JSON.stringify(data));
-
-    const res = await fetch('https://www.newgrounds.io/gateway_v3.php', {
-      body,
-      method: 'POST',
-    });
+    const res = await ng_request({ component: 'App.checkSession', session_id });
 
     const res_json = await res.json();
     if (!res_json) {
@@ -118,4 +128,12 @@ const validate_user = async ({
   } catch {
     return false;
   }
+};
+
+export const ng_ping = async (session_id: string) => {
+  const res = await ng_request({
+    component: 'Gateway.ping',
+    session_id,
+  });
+  await res.json();
 };

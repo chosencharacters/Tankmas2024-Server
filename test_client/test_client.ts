@@ -18,7 +18,7 @@ class TestClient {
       console.error('Failed to connect.');
     });
 
-    socket.addEventListener('message', event => {
+    socket.addEventListener('message', _event => {
       console.info(`got message`);
     });
     this.socket = socket;

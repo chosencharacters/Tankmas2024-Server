@@ -9,8 +9,8 @@ const timeout = (ms = 0) =>
   });
 
 if (import.meta.main) {
-  const c1 = new TestClient('user 1', '111111');
-  const c2 = new TestClient('user 2', '111112');
+  const _c1 = new TestClient(username, session);
+  const _c2 = new TestClient('user 2', '111112');
   const c3 = new TestClient('user 3', '111113');
   const c4 = new TestClient('user 4', '111114');
 
