@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events';
 
 import {
   event_list_schema,
+  EventType,
   type EventQueueMessage,
   type MultiplayerEvent,
 } from './messages.ts';
@@ -18,7 +19,11 @@ interface SocketEventMap {
   client_message: [username: string, MultiplayerEvent, WebSocket];
 }
 
-type QueuedSocket = { socket: WebSocket; event_queue: MultiplayerEvent[] };
+type QueuedSocket = {
+  socket: WebSocket;
+  event_queue: MultiplayerEvent[];
+  closed: boolean;
+};
 class WebsocketHandler extends EventEmitter<SocketEventMap> {
   port: number;
 
@@ -54,10 +59,16 @@ class WebsocketHandler extends EventEmitter<SocketEventMap> {
 
   flush_queue = (socket: QueuedSocket) => {
     if (socket.event_queue.length === 0) return;
+
     const msg: EventQueueMessage = { events: socket.event_queue };
     socket.event_queue = [];
-    const encoded = JSON.stringify(msg);
-    socket.socket.send(encoded);
+
+    this._send_events(msg, socket.socket);
+  };
+
+  _send_events = (events: EventQueueMessage, socket: WebSocket) => {
+    const encoded = JSON.stringify(events);
+    socket.send(encoded);
   };
 
   flush_queues = () => {
@@ -74,26 +85,39 @@ class WebsocketHandler extends EventEmitter<SocketEventMap> {
       return null;
     }
 
-    console.info('Received new websocket request...');
+    logger.info('Received new websocket request...');
 
     const { username, session_id, valid } = await validate_request(req);
 
     if (!valid || !username || !session_id) {
-      console.info(`User session was invalid (${username}, ${session_id})`);
+      logger.info(`User session was invalid (${username}, ${session_id})`);
       return new Response(null, { status: 403 });
     }
 
-    console.info(`Authenticated as ${username}`);
+    if (this.clients[username]) {
+      const existing_client = this.clients[username];
+      logger.info(`${username} has existing session. disconnect it.`);
+      delete this.clients[username];
+      this._disconnect_client(username, existing_client);
+    }
+
+    logger.info(`Authenticated as ${username}`);
 
     const { socket, response } = Deno.upgradeWebSocket(req);
 
+    const own_client: QueuedSocket = { socket, event_queue: [], closed: false };
+
     socket.addEventListener('open', () => {
-      this.clients[username] = { socket, event_queue: [] };
+      if (own_client.closed) return;
+
+      this.clients[username] = own_client;
       this._refresh_user_list();
       this.emit('client_connected', { username, session_id }, socket);
     });
 
     socket.addEventListener('message', event => {
+      if (own_client.closed) return;
+
       try {
         const d = JSON.parse(event.data);
 
@@ -101,14 +125,14 @@ class WebsocketHandler extends EventEmitter<SocketEventMap> {
         if (d.events) {
           const data = event_list_schema.safeParse(d);
           if (!data.success) {
-            console.warn(`Could not parse event list: ${data.error}`);
+            logger.warn(`Could not parse event list: ${data.error}`);
             return;
           }
           event_list = data.data.events;
         } else {
           const data = event_schema.safeParse(d);
           if (!data.success) {
-            console.warn(`Could not parse event: ${data.error}`);
+            logger.warn(`Could not parse event: ${data.error}`);
             return;
           }
 
@@ -121,22 +145,47 @@ class WebsocketHandler extends EventEmitter<SocketEventMap> {
         }
       } catch (error) {
         if (error instanceof SyntaxError) {
-          console.warn(
+          logger.warn(
             `Received message in invalid format. Message content: ${event.data}`
           );
         } else {
-          console.error(error);
+          logger.error(error);
         }
       }
     });
 
     socket.addEventListener('close', _e => {
-      delete this.clients[username];
-      this._refresh_user_list();
-      this.emit('client_disconnected', username, socket);
+      if (own_client.closed) return;
+
+      this._disconnect_client(username, own_client);
     });
 
     return response;
+  };
+
+  _disconnect_client = (username: string, client: QueuedSocket) => {
+    if (client.closed) return;
+
+    client.closed = true;
+
+    if (this.clients[username] === client) {
+      delete this.clients[username];
+    }
+    this._refresh_user_list();
+
+    const socket = client.socket;
+    this.emit('client_disconnected', username, socket);
+
+    if (socket.readyState === socket.OPEN) {
+      this._send_events(
+        { events: [{ type: EventType.PleaseLeave, timestamp: Date.now() }] },
+        socket
+      );
+
+      setTimeout(() => {
+        socket.close();
+      }, 1000);
+    }
   };
 
   _refresh_user_list = () => {

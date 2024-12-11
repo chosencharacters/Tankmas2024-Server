@@ -13,6 +13,8 @@ export const EventType = {
 
   // Notification message, useful to send messages to players.
   NotificationMessage: 12 as const,
+
+  PleaseLeave: 74 as const,
 };
 
 const player_def = z.object({
@@ -79,11 +81,17 @@ const notification_message_event = z.object({
   }),
 });
 
+const please_leave_schema = z.object({
+  type: z.literal(EventType.PleaseLeave),
+  timestamp: z.number().optional(),
+});
+
 export const event_schema = z.discriminatedUnion('type', [
   position_update_event,
   custom_event,
   player_left,
   notification_message_event,
+  please_leave_schema,
 ]);
 
 export type CustomEvent = z.infer<typeof custom_event>;

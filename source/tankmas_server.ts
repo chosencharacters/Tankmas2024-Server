@@ -59,7 +59,7 @@ class TankmasServer {
 
   constructor(config: ConfigFile) {
     this.config = config;
-    console.info('Starting Tankmas Server...');
+    logger.info('Starting Tankmas Server...');
 
     this.db = new TankmasDB(config.database_path, config.backup_dir);
 
@@ -113,7 +113,7 @@ class TankmasServer {
   ) => {
     const room = this.get_room(room_id);
     if (!room) {
-      console.warn(`Could not find room with ID ${room_id}.`);
+      logger.warn(`Could not find room with ID ${room_id}.`);
       return;
     }
 
@@ -143,7 +143,7 @@ class TankmasServer {
     this.exited = true;
     this.ng_heartbeat.stop();
 
-    console.info('Server shutting down. Saving things to DB...\n');
+    logger.info('Server shutting down. Saving things to DB...\n');
     this._write_to_db();
   }
 
@@ -181,12 +181,7 @@ class TankmasServer {
         let res = await this.websockets.handle_request(req, info);
         if (res) return res;
 
-        if (req.method === 'OPTIONS') {
-          res = new Response(null, { status: 200 });
-          res.headers.set('Allow', 'Allow: OPTIONS, GET, HEAD, POST');
-        } else {
-          res = await webserver_handler(req, this);
-        }
+        res = await webserver_handler(req, this);
 
         if (res) {
           res.headers.set('Access-Control-Allow-Origin', '*');
@@ -195,7 +190,7 @@ class TankmasServer {
 
         return res;
       } catch (error) {
-        console.error(error);
+        logger.error(error);
         return new Response(null, { status: 500 });
       }
     });
@@ -216,7 +211,6 @@ class TankmasServer {
   input = new InputLoop();
 
   await_command = async () => {
-    console.info('>');
     const full_command = await this.input.read(false);
     const [name, ...args] = full_command.split(' ');
 
@@ -224,7 +218,7 @@ class TankmasServer {
     if (command) {
       await command({ name, args, server: this });
     } else if (name) {
-      console.info(`Unknown command "${name}"`);
+      logger.info(`Unknown command "${name}"`);
     }
 
     this.await_command();
@@ -283,7 +277,7 @@ class TankmasServer {
         const switched_rooms = old_room_id !== new_room_id;
 
         if (switched_rooms && old_room_id) {
-          console.info(`user ${user.username} left room ${old_room_id}`);
+          logger.info(`${user.username} left room ${old_room_id}`);
           this.broadcast_to_room(old_room_id, {
             type: EventType.PlayerLeft,
             data: {
@@ -341,7 +335,7 @@ class TankmasServer {
   ) => {
     const user = this.get_user(username);
     if (!user) {
-      console.error(`received event form non existent user ${username}`);
+      logger.error(`Received event form non existent user ${username}.`);
       return;
     }
 
@@ -370,7 +364,7 @@ class TankmasServer {
     // Currently just broadcast custom events to everyone,
     // but make sure the username is set to the actual player.
     if (event.type === EventType.CustomEvent && user.room_id) {
-      console.info(`got custom event ${event.name} from ${username}`);
+      logger.info(`[EVENT] ${username} -> ${event.name}`);
 
       const event_with_room_id = {
         ...event,
@@ -402,13 +396,13 @@ class TankmasServer {
     this.user_list = Object.values(this._users);
     this._refresh_room_users();
 
-    console.info(`${username} connected`);
+    logger.info(`${username} connected`);
   };
 
   _client_disconnected = (username: string) => {
     const user = this.get_user(username);
     if (!user) {
-      console.error(`Tried disconnecting non existent user ${username}`);
+      logger.error(`Tried disconnecting non existent user ${username}`);
       return;
     }
 
@@ -433,7 +427,7 @@ class TankmasServer {
       data: user.get_definition(),
     });
 
-    console.info(
+    logger.info(
       `${username} disconnected. Was online for ${format_time(session_time)}`
     );
   };
@@ -460,7 +454,7 @@ class TankmasServer {
     if (this.time_since_backup_ms >= this.backup_interval_ms) {
       this.time_since_backup_ms = 0;
       this.db.backup();
-      console.info('Created backup of database.');
+      logger.info('Created backup of database.');
     }
   };
 

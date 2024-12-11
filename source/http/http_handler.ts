@@ -27,6 +27,13 @@ const webserver_handler = async (
     //'authorization,content-length',
   );
 
+  // ALLOW THESE THINGS WHEN OPTIONS ASKED
+  if (req.method === 'OPTIONS') {
+    const res = new Response(null, { status: 200 });
+    res.headers.set('Allow', 'Allow: OPTIONS, GET, HEAD, POST');
+    return res;
+  }
+
   if (PLAYERS_ROUTE.exec(req.url)) {
     const data = server.user_list.map(p => p.get_definition());
     return Response.json({ data }, { status: 200, headers });

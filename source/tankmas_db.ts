@@ -1,9 +1,6 @@
 import { DB } from 'https://deno.land/x/sqlite@v3.9.1/mod.ts';
 import * as path from 'jsr:@std/path';
-import type {
-  CustomEvent,
-  FullPlayerDefinition,
-} from './messages.ts';
+import type { CustomEvent, FullPlayerDefinition } from './messages.ts';
 import { format } from 'jsr:@std/datetime';
 import type User from './entities/user.ts';
 
@@ -263,7 +260,7 @@ class TankmasDB {
     for (const migration_name of sorted) {
       if (names?.find(n => n[0] === migration_name)) continue;
       const query = Deno.readTextFileSync(`migrations/${migration_name}`);
-      console.info(`Running migration ${migration_name}`);
+      logger.info(`Running migration ${migration_name}`);
       this.db.execute(query);
       this.db.query(`INSERT INTO migrations(name) VALUES(:migration_name);`, {
         migration_name,

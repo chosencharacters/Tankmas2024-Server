@@ -90,12 +90,12 @@ export const ng_check_session = async ({
     if (!username || !session_id) return false;
 
     if (DEV_MODE) {
-      console.info('dev mode. skip validating NG session.');
+      logger.info('dev mode. skip validating NG session.');
       return true;
     }
 
     if (!DEV_MODE && !NG_APP_ID) {
-      console.error('No NG_APP_ID found. Add it to your environment');
+      logger.error('No NG_APP_ID found. Add it to your environment');
       return false;
     }
 

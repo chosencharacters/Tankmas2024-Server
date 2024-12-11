@@ -4,7 +4,7 @@ export const broadcast: CommandFn = ({ name, args, server }) => {
   const rest = args.join(' ');
   if (rest) {
     const sticky = name === 'broadcast_sticky';
-    console.info(`broadcasting message "${rest}"`);
+    logger.info(`Broadcasting message "${rest}"`);
     server.send_server_notification(rest, sticky);
   }
 

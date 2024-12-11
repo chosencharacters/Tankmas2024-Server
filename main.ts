@@ -7,6 +7,7 @@ for (const [k, v] of Object.entries(vals)) {
 
 import config from './config.json' with { type: 'json' };
 import TankmasServer from './source/tankmas_server.ts';
+import './source/logger.ts';
 
 // Learn more at https://docs.deno.com/runtime/manual/examples/module_metadata#concepts
 if (import.meta.main) {

@@ -50,7 +50,7 @@ class NewgroundsHeartbeat extends EventEmitter<NewgroundsHeartbeatEventMap> {
       const should_ping = now - last_ping > HEARTBEAT_INTERVAL_MS;
       if (!should_ping) continue;
 
-      console.info(`Pinging NG API for user ${username}`);
+      logger.info(`Pinging NG API for user ${username}`);
 
       ng_ping(session_id);
 

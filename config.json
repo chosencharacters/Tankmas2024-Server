@@ -10,9 +10,6 @@
   "backup_interval": 3600,
   "backup_dir": "backups",
 
-  "user_max_idle_time": 600,
-  "user_def_vals": ["x", "y", "costume", "sx"],
-
   "initial_player_data": {
     "data": {}
   },
@@ -25,9 +22,9 @@
     },
     {
       "id": 2,
-      "identifier": "test_room",
-      "name": "Test Room",
-      "maps": ["test_map"]
+      "identifier": "hotel_interior",
+      "name": "Hotel Interior",
+      "maps": ["hotel_interior"]
     }
   ]
 }
