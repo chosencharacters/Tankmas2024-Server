@@ -1,6 +1,15 @@
 let NG_APP_ID: string | undefined = undefined;
 let DEV_MODE: boolean | undefined = undefined;
 
+type UserSessionCache = { [username: string]: string };
+const session_id_cache: UserSessionCache = {};
+
+export const set_session_id_cache = (c: UserSessionCache) => {
+  for (const [username, session_id] of Object.entries(c)) {
+    session_id_cache[username] = session_id;
+  }
+};
+
 /// Checks if a incoming request balongs to an user, and if their session
 /// matches the newgrounds session. returns an object containing the
 /// username and session id, and a bool valid: true.
@@ -10,7 +19,13 @@ export const validate_request = async (request: Request) => {
     NG_APP_ID = Deno.env.get('NG_APP_ID');
   }
 
-  const auth = request.headers.get('Authorization');
+  const auth_header = request.headers.get('Authorization');
+
+  const [protocol, auth_token] =
+    request.headers.get('Sec-WebSocket-Protocol') ?? [];
+
+  const auth =
+    auth_header ?? (protocol === 'access_token' ? auth_token : undefined);
 
   if (!auth) {
     const url = new URL(request.url);
@@ -18,38 +33,32 @@ export const validate_request = async (request: Request) => {
     const username = url.searchParams.get('username');
     const session_id = url.searchParams.get('session');
     if (!username || !session_id) {
-      return { valid: false, username, session_id };
+      return { valid: false, username, session_id, protocol };
     }
 
     const valid =
       !!username && (await ng_check_session({ username, session_id }));
-    return { valid, username, session_id };
+    return { valid, username, session_id, protocol };
   }
 
   // If no auth header or session query parameters, user's not logged in in any way.
-  if (!auth) return { valid: false, username: null, session_id: null };
+  if (!auth)
+    return { valid: false, username: null, session_id: null, protocol };
 
   // Check basic authorization header
   const [type, value] = auth.split(' ');
   if (type !== 'Basic')
-    return { valid: false, username: null, session_id: null };
+    return { valid: false, username: null, session_id: null, protocol };
 
   const decoded = atob(value);
   const [username, session_id] = decoded.split(':');
 
-  if (DEV_MODE) return { username, session_id, valid: true };
+  // DEV_MODE accepts any kind of session/username
+  if (DEV_MODE) return { username, session_id, valid: true, protocol };
 
   const valid = await ng_check_session({ username, session_id });
-  return { username, session_id, valid };
-};
 
-type UserSessionCache = { [username: string]: string };
-const session_id_cache: UserSessionCache = {};
-
-export const set_session_id_cache = (c: UserSessionCache) => {
-  for (const [username, session_id] of Object.entries(c)) {
-    session_id_cache[username] = session_id;
-  }
+  return { username, session_id, valid, protocol };
 };
 
 const ng_request = async ({
@@ -117,7 +126,7 @@ export const ng_check_session = async ({
 
     if (!session.user) return false;
 
-    const valid = session.user.name === username;
+    const valid = session.user.name === username && !session.expired;
     if (valid) {
       session_id_cache[username] = session_id;
     }
@@ -133,5 +142,6 @@ export const ng_ping = async (session_id: string) => {
     component: 'Gateway.ping',
     session_id,
   });
+
   await res.json();
 };

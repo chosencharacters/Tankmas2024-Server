@@ -1,4 +1,4 @@
-import { validate_request } from '../newgrounds.ts';
+import { validate_request } from '../newgrounds/newgrounds_sessions.ts';
 import type TankmasServer from '../tankmas_server.ts';
 import get_premieres from './premieres.ts';
 

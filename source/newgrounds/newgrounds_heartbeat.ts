@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { ng_ping } from './newgrounds.ts';
+import { ng_ping } from './newgrounds_sessions.ts';
 
 type NGSession = {
   session_id: string;
@@ -13,6 +13,10 @@ interface NewgroundsHeartbeatEventMap {
   on_session_expired: [{ username: string; session_id: string }];
 }
 
+/**
+ * Keeps connected users' sessions alive by
+ * periodically pinging the NG gateway using their session ID.
+ */
 class NewgroundsHeartbeat extends EventEmitter<NewgroundsHeartbeatEventMap> {
   sessions: { [username: string]: NGSession } = {};
   timer_id?: number;

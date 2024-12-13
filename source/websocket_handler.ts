@@ -1,5 +1,8 @@
-import { validate_request } from './newgrounds.ts';
+import { validate_request } from './newgrounds/newgrounds_sessions.ts';
 import { EventEmitter } from 'node:events';
+
+const WS_CLOSE_STATUS_OK = 1000;
+const WS_CLOSE_STATUS_WRONG_DATA = 1003;
 
 import {
   event_list_schema,
@@ -7,6 +10,7 @@ import {
   type EventQueueMessage,
   type MultiplayerEvent,
 } from './messages.ts';
+
 import { event_schema } from './messages.ts';
 
 export type WebsocketHandlerOptions = {
@@ -85,9 +89,12 @@ class WebsocketHandler extends EventEmitter<SocketEventMap> {
       return null;
     }
 
-    logger.info('Received new websocket request...');
+    const { username, session_id, valid, protocol } =
+      await validate_request(req);
 
-    const { username, session_id, valid } = await validate_request(req);
+    logger.info(
+      `Websocket request (${username ?? 'unknown user'}, ${session_id})`
+    );
 
     if (!valid || !username || !session_id) {
       logger.info(`User session was invalid (${username}, ${session_id})`);
@@ -97,25 +104,32 @@ class WebsocketHandler extends EventEmitter<SocketEventMap> {
     if (this.clients[username]) {
       const existing_client = this.clients[username];
       logger.info(`${username} has existing session. disconnect it.`);
-      delete this.clients[username];
       this._disconnect_client(username, existing_client);
     }
 
     logger.info(`Authenticated as ${username}`);
 
-    const { socket, response } = Deno.upgradeWebSocket(req);
+    const { socket, response } = Deno.upgradeWebSocket(req, { protocol });
 
     const own_client: QueuedSocket = { socket, event_queue: [], closed: false };
 
-    socket.addEventListener('open', () => {
+    const _on_open = (_e: Event) => {
       if (own_client.closed) return;
+
+      /// Check if another connection has been made during the establishment of
+      /// this socket. If so, close this one.
+      if (this.clients[username]) {
+        logger.info(`${username} managed to create duplicate session.`);
+        this._disconnect_client(username, own_client);
+        return;
+      }
 
       this.clients[username] = own_client;
       this._refresh_user_list();
       this.emit('client_connected', { username, session_id }, socket);
-    });
+    };
 
-    socket.addEventListener('message', event => {
+    const _on_message = (event: MessageEvent) => {
       if (own_client.closed) return;
 
       try {
@@ -148,44 +162,77 @@ class WebsocketHandler extends EventEmitter<SocketEventMap> {
           logger.warn(
             `Received message in invalid format. Message content: ${event.data}`
           );
+
+          this._disconnect_client(
+            username,
+            own_client,
+            WS_CLOSE_STATUS_WRONG_DATA,
+            'Server did not understand :('
+          );
         } else {
           logger.error(error);
         }
       }
-    });
+    };
 
-    socket.addEventListener('close', _e => {
-      if (own_client.closed) return;
-
+    const _on_close = (_e: CloseEvent) => {
       this._disconnect_client(username, own_client);
-    });
+
+      socket.removeEventListener('open', _on_open);
+      socket.removeEventListener('close', _on_close);
+      socket.removeEventListener('message', _on_message);
+    };
+
+    socket.addEventListener('open', _on_open);
+    socket.addEventListener('close', _on_close);
+    socket.addEventListener('message', _on_message);
 
     return response;
   };
 
-  _disconnect_client = (username: string, client: QueuedSocket) => {
+  // Sends a good bye packet to the client and closes it
+  request_socket_close = (
+    socket: WebSocket,
+    status_code?: number,
+    reason?: string
+  ) => {
+    if (socket.readyState !== socket.OPEN) {
+      return;
+    }
+
+    this._send_events(
+      { events: [{ type: EventType.PleaseLeave, timestamp: Date.now() }] },
+      socket
+    );
+
+    socket.close(status_code, reason);
+  };
+
+  kick_user = (username: string) => {
+    const socket = this.clients[username];
+    if (!socket) return false;
+    this._disconnect_client(username, socket, 1000, 'Kicked.');
+    return true;
+  };
+
+  _disconnect_client = (
+    username: string,
+    client: QueuedSocket,
+    status_code = WS_CLOSE_STATUS_OK,
+    reason?: string
+  ) => {
     if (client.closed) return;
 
     client.closed = true;
 
     if (this.clients[username] === client) {
       delete this.clients[username];
+      this._refresh_user_list();
     }
-    this._refresh_user_list();
 
-    const socket = client.socket;
+    const { socket } = client;
     this.emit('client_disconnected', username, socket);
-
-    if (socket.readyState === socket.OPEN) {
-      this._send_events(
-        { events: [{ type: EventType.PleaseLeave, timestamp: Date.now() }] },
-        socket
-      );
-
-      setTimeout(() => {
-        socket.close();
-      }, 1000);
-    }
+    this.request_socket_close(socket, status_code, reason);
   };
 
   _refresh_user_list = () => {

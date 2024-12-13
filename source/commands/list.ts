@@ -9,6 +9,7 @@ export const list: CommandFn = ({ server }) => {
       return `${u.username} - ${format_time(seconds)}`;
     })
     .join('\n');
-  if (user_list.length) logger.info(user_list);
-  logger.info(player_count);
+  if (user_list.length) console.info(user_list);
+
+  console.info(player_count);
 };

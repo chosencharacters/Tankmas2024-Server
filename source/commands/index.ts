@@ -10,3 +10,4 @@ export type CommandFn = (params: {
 export * from './broadcast.ts';
 export * from './list.ts';
 export * from './save.ts';
+export * from './kick.ts';

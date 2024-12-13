@@ -14,9 +14,9 @@ import {
 } from './messages.ts';
 
 import webserver_handler from './http/http_handler.ts';
-import { set_session_id_cache } from './newgrounds.ts';
+import { set_session_id_cache } from './newgrounds/newgrounds_sessions.ts';
 import { format_time } from './util.ts';
-import NewgroundsHeartbeat from './newgrounds_heartbeat.ts';
+import NewgroundsHeartbeat from './newgrounds/newgrounds_heartbeat.ts';
 
 export type ConfigFile = typeof config & {
   database_path: string;
