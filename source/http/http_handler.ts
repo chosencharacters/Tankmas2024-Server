@@ -97,14 +97,14 @@ const webserver_handler = async (
       );
     } else if (req.method === 'POST') {
       if (!valid || !username)
-        return new Response(null, { status: 403, headers });
+        return Response.json({ data: { ok: false } }, { status: 403, headers });
       const body = await req.json();
       if (typeof body.data !== 'string') {
-        return new Response(null, { status: 400, headers });
+        return Response.json({ data: { ok: false } }, { status: 400, headers });
       }
 
       server.db.store_user_save(username, body.data);
-      return new Response(null, { status: 200, headers });
+      return Response.json({ data: { ok: true } }, { status: 200, headers });
     }
   }
 
