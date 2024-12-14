@@ -259,16 +259,19 @@ class TankmasServer {
 
       const previous_state = this.previous_user_states[user.username];
       const current_state = user.get_definition();
-      const data = !previous_state
+
+      const switched_rooms =
+        previous_state?.room_id &&
+        previous_state.room_id !== current_state.room_id;
+
+      const needs_full_update = !previous_state || switched_rooms;
+
+      const data = needs_full_update
         ? current_state
         : user.get_definition_diff(previous_state);
 
       // If user just connected, or switches rooms
-      if (
-        user.state === UserState.RequestsFullRoomUpdate ||
-        (previous_state?.room_id &&
-          previous_state.room_id !== current_state.room_id)
-      ) {
+      if (user.state === UserState.RequestsFullRoomUpdate || switched_rooms) {
         user.state = UserState.Joined;
 
         const old_room_id = previous_state?.room_id;

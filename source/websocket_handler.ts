@@ -92,9 +92,7 @@ class WebsocketHandler extends EventEmitter<SocketEventMap> {
     const { username, session_id, valid, protocol } =
       await validate_request(req);
 
-    logger.info(
-      `Websocket request (${username ?? 'unknown user'}, ${session_id})`
-    );
+    logger.info(`Websocket request (${username ?? 'unknown user'})`);
 
     if (!valid || !username || !session_id) {
       logger.info(`User session was invalid (${username}, ${session_id})`);
