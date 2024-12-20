@@ -13,6 +13,7 @@
   "initial_player_data": {
     "data": {}
   },
+
   "rooms": [
     {
       "id": 1,
@@ -25,6 +26,17 @@
       "identifier": "hotel_interior",
       "name": "Hotel Interior",
       "maps": ["hotel_interior"]
+    },
+    {
+      "id": 3,
+      "identifier": "theatre",
+      "name": "Theatre",
+      "maps": ["theatre"]
+    },
+    {
+      "id": 98,
+      "identifier": "da_gauntlet",
+      "name": "Da Gauntlet"
     }
   ]
 }

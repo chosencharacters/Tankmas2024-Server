@@ -1,7 +1,6 @@
 import type { ConfigFile } from '../tankmas_server.ts';
 import type User from './user.ts';
 
-type RoomId = string | number;
 class Room {
   user_list: User[] = [];
   name: string;
