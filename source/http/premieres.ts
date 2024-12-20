@@ -9,7 +9,7 @@ const premieres = [
   },
   {
     name: "Dr. Good's Movie",
-    time: '2024-12-21 02:16PM',
+    time: '2024-12-21 05:00PM',
     length: 530000,
     url: 'https://uploads.ungrounded.net/alternate/1865000/1865703_alternate_184213.720p.mp4?1716028231',
   },
